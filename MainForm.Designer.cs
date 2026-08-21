@@ -56,7 +56,7 @@ partial class MainForm
         lblTitle.Name = "lblTitle";
         lblTitle.Size = new Size(288, 41);
         lblTitle.TabIndex = 0;
-        lblTitle.Text = "✂TopStitch Tailor";
+        lblTitle.Text = "✂Golden Tailor";
         lblTitle.Click += lblTitle_Click;
         // 
         // lblSubtitle
@@ -274,7 +274,7 @@ partial class MainForm
         MinimumSize = new Size(800, 500);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
-        Text = "TopStitch Tailor — Customer Management";
+        Text = "Golden Tailor — Customer Management";
         panelHeader.ResumeLayout(false);
         panelHeader.PerformLayout();
         panelSearch.ResumeLayout(false);

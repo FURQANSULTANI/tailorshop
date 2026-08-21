@@ -22,7 +22,7 @@ public partial class CustomerForm : Form
         InitializeComponent();
 
         lblHeader.Text = _isNew ? "✂  New Customer" : $"✂  Edit: {_customer.Name}";
-        Text           = _isNew ? "New Customer — TopStitch Tailor" : $"Edit: {_customer.Name}";
+        Text           = _isNew ? "New Customer — Golden Tailor" : $"Edit: {_customer.Name}";
 
         foreach (var section in Database.DefaultFields.Keys)
             tabControl.TabPages.Add(BuildMeasurementTab(section));
@@ -188,12 +188,12 @@ public partial class CustomerForm : Form
         if (_printRows.Count == 0)
         {
             MessageBox.Show("Print karne ke liye koi measurement nahi hai.",
-                "TopStitch Tailor", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                "Golden Tailor", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         using var printDoc = new PrintDocument();
-        printDoc.DocumentName = $"TopStitch Tailor - {_customer.Name} - {section}";
+        printDoc.DocumentName = $"Golden Tailor - {_customer.Name} - {section}";
         printDoc.PrintPage   += PrintPage;
 
         using var preview = new PrintPreviewDialog
@@ -243,7 +243,7 @@ public partial class CustomerForm : Form
         using var headerBg = new SolidBrush(Color.FromArgb(30, 25, 10));
         g.FillRectangle(headerBg, x - 20, y - 10, pageW + 40, 60);
 
-        g.DrawString("✂  TopStitch Tailor", shopFont, goldBrush, x, y);
+        g.DrawString("✂  Golden Tailor", shopFont, goldBrush, x, y);
         g.DrawString("Professional Tailoring Services", subFont,
             new SolidBrush(Color.FromArgb(200, 175, 110)), x + 2, y + 32);
         y += 80;
@@ -308,7 +308,7 @@ public partial class CustomerForm : Form
         g.DrawLine(goldPen, x - 20, y, x + pageW + 20, y);
         y += 8;
         using var footerFont = new Font("Segoe UI", 8.5f, FontStyle.Italic);
-        g.DrawString("TopStitch Tailor  •  Thank you for your trust!",
+        g.DrawString("Golden Tailor  •  Thank you for your trust!",
             footerFont, grayBrush, x, y);
         g.DrawString($"Printed: {DateTime.Now:dd MMM yyyy  hh:mm tt}",
             footerFont, grayBrush, x + pageW - 180, y);
@@ -331,7 +331,7 @@ public partial class CustomerForm : Form
     {
         if (string.IsNullOrWhiteSpace(txtName.Text))
         {
-            MessageBox.Show("Customer ka naam zaroor likhein!", "TopStitch Tailor",
+            MessageBox.Show("Customer ka naam zaroor likhein!", "Golden Tailor",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }

@@ -69,7 +69,7 @@ public partial class MainForm : Form {
     }
 
     private static void Info(string msg) =>
-        MessageBox.Show(msg, "TopStitch Tailor", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(msg, "Golden Tailor", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
     private void lblTitle_Click(object sender, EventArgs e) {
 

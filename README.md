@@ -1,4 +1,4 @@
-# 🧵 TopStitch Tailor — Customer Management System
+# 🧵 Golden Tailor — Customer Management System
 
 ---
 
