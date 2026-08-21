@@ -97,10 +97,10 @@ partial class MainForm
         // txtSearch
         // 
         txtSearch.Font = new Font("Segoe UI", 10F);
-        txtSearch.Location = new Point(110, 14);
+        txtSearch.Location = new Point(140, 14);
         txtSearch.Name = "txtSearch";
         txtSearch.PlaceholderText = " Naam ya phone number...";
-        txtSearch.Size = new Size(300, 30);
+        txtSearch.Size = new Size(270, 30);
         txtSearch.TabIndex = 0;
         txtSearch.TextChanged += txtSearch_TextChanged;
         // 
