@@ -6,14 +6,14 @@ public partial class CustomerForm : Form
 {
     private readonly Customer _customer;
     private readonly bool _isNew;
-    private readonly Dictionary<string, Panel> _sectionPanels = new();
+    private readonly Dictionary<string, FlowLayoutPanel> _sectionPanels = new();
 
     // Print state
     private string _printSection = "";
     private List<(string Field, string Value)> _printRows = new();
 
-    private static readonly Color Gold   = Color.FromArgb(184, 134, 11);
-    private static readonly Color DarkBg = Color.FromArgb(30, 25, 10);
+    private static readonly Color Gold   = Theme.DarkGold;
+    private static readonly Color DarkBg = Theme.DarkGrey;
 
     public CustomerForm(Customer? customer)
     {
@@ -33,26 +33,46 @@ public partial class CustomerForm : Form
         txtNotes.Text   = _customer.Notes   ?? "";
 
         btnSave.Click += BtnSave_Click;
+        tabControl.DrawItem += TabControl_DrawItem;
         AcceptButton   = btnSave;
+
+        Theme.RoundCorners(btnSave, 6);
+        Theme.RoundCorners(btnCancel, 6);
+        panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
+        panelBottom.Controls.Add(Theme.AccentDivider(DockStyle.Top));
+    }
+
+    // ── Tab Strip (owner-drawn so it follows the theme, not the OS default) ────
+
+    private void TabControl_DrawItem(object? sender, DrawItemEventArgs e)
+    {
+        var tab      = tabControl.TabPages[e.Index];
+        var selected = e.Index == tabControl.SelectedIndex;
+        var back     = selected ? Theme.DarkGold : Theme.DarkGrey;
+        var fore     = selected ? Theme.TextOnGold : Theme.TextOnDark;
+
+        using var backBrush = new SolidBrush(back);
+        e.Graphics.FillRectangle(backBrush, e.Bounds);
+        TextRenderer.DrawText(e.Graphics, tab.Text, tabControl.Font, e.Bounds, fore,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 
     // ── Measurement Tab ───────────────────────────────────────────────────────
 
     private TabPage BuildMeasurementTab(string section)
     {
-        var emoji = section switch
-        {
-            "Shirt"           => "👔",
-            "Shalwar Kameez"  => "🇵🇰",
-            "Pant"            => "👖",
-            "Coat / Sherwani" => "🥼",
-            _                 => "📏"
-        };
-
-        var tab = new TabPage($"{emoji}  {section}") { BackColor = Color.White };
+        var tab = new TabPage(section) { BackColor = Theme.NormalGrey };
 
         // Scrollable field area
-        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White };
+        var scroll = new FlowLayoutPanel
+        {
+            Dock          = DockStyle.Fill,
+            AutoScroll    = true,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents  = false,
+            BackColor     = Theme.NormalGrey,
+            Padding       = new Padding(0, 10, 0, 10)
+        };
         _sectionPanels[section] = scroll;
         tab.Controls.Add(scroll);
 
@@ -61,36 +81,40 @@ public partial class CustomerForm : Form
         {
             Dock      = DockStyle.Bottom,
             Height    = 44,
-            BackColor = Color.FromArgb(255, 248, 220)
+            BackColor = Theme.DarkGrey
         };
 
         var btnAddField = new Button
         {
-            Text      = "➕  Add Field",
+            Text      = "+  Add Field",
             BackColor = Gold,
             ForeColor = DarkBg,
             FlatStyle = FlatStyle.Flat,
             Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-            Size      = new Size(140, 32),
-            Location  = new Point(10, 6),
+            Size      = new Size(130, 32),
+            Location  = new Point(12, 6),
             Cursor    = Cursors.Hand
         };
         btnAddField.FlatAppearance.BorderSize = 0;
+        btnAddField.FlatAppearance.MouseOverBackColor = Theme.Hover(Gold);
         btnAddField.Click += (_, _) => AddFieldRow(section, "", "");
+        Theme.RoundCorners(btnAddField, 6);
 
         var btnPrint = new Button
         {
-            Text      = "🖨️  Print",
-            BackColor = Color.FromArgb(30, 90, 160),
-            ForeColor = Color.White,
+            Text      = "Print",
+            BackColor = Theme.NormalGrey,
+            ForeColor = Theme.TextOnNormal,
             FlatStyle = FlatStyle.Flat,
             Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-            Size      = new Size(120, 32),
-            Location  = new Point(158, 6),
+            Size      = new Size(90, 32),
+            Location  = new Point(150, 6),
             Cursor    = Cursors.Hand
         };
         btnPrint.FlatAppearance.BorderSize = 0;
+        btnPrint.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
         btnPrint.Click += (_, _) => PrintSection(section);
+        Theme.RoundCorners(btnPrint, 6);
 
         toolbar.Controls.Add(btnAddField);
         toolbar.Controls.Add(btnPrint);
@@ -99,82 +123,83 @@ public partial class CustomerForm : Form
         // Load fields
         var existing = _customer.ForSection(section);
         if (existing.Count > 0)
-            foreach (var m in existing) AddFieldRow(section, m.FieldName, m.Value ?? "");
+            foreach (var m in existing) AddFieldRow(section, m.FieldName, m.Value ?? "", scrollIntoView: false);
         else
-            foreach (var f in Database.DefaultFields[section]) AddFieldRow(section, f, "");
+            foreach (var f in Database.DefaultFields[section]) AddFieldRow(section, f, "", scrollIntoView: false);
 
         return tab;
     }
 
     // ── Field Row ─────────────────────────────────────────────────────────────
 
-    private void AddFieldRow(string section, string fieldName, string value)
+    private void AddFieldRow(string section, string fieldName, string value, bool scrollIntoView = true)
     {
         var panel = _sectionPanels[section];
 
-        int top = 8;
-        foreach (Control c in panel.Controls) top = Math.Max(top, c.Bottom + 5);
-
-        var row = new Panel { Location = new Point(0, top), Height = 38, BackColor = Color.White };
+        var row = new Panel { Height = 48, Margin = new Padding(0, 0, 0, 6), BackColor = Theme.NormalGrey };
 
         var txtField = new TextBox
         {
             Text            = fieldName,
-            Location        = new Point(12, 6),
+            Location        = new Point(12, 10),
             Width           = 215,
-            Font            = new Font("Segoe UI", 9.5f),
+            Font            = Theme.UrduFont,
+            ForeColor       = Theme.TextOnNormal,
+            RightToLeft     = RightToLeft.Yes,
+            TextAlign       = HorizontalAlignment.Right,
             BorderStyle     = BorderStyle.FixedSingle,
-            BackColor       = Color.FromArgb(255, 252, 235),
+            BackColor       = Theme.NormalGrey,
             PlaceholderText = "Field ka naam..."
         };
         var txtVal = new TextBox
         {
             Text            = value,
-            Location        = new Point(236, 6),
+            Location        = new Point(240, 12),
             Width           = 160,
             Font            = new Font("Segoe UI", 9.5f),
             BorderStyle     = BorderStyle.FixedSingle,
+            BackColor       = Theme.NormalGrey,
+            ForeColor       = Theme.TextOnNormal,
             PlaceholderText = "Inches..."
         };
         var lblIn = new Label
         {
             Text      = "in",
-            Location  = new Point(404, 10),
+            Location  = new Point(408, 16),
             AutoSize  = true,
-            ForeColor = Color.FromArgb(130, 110, 50),
+            ForeColor = Theme.TextOnNormal,
             Font      = new Font("Segoe UI", 8.5f)
         };
         var btnRemove = new Button
         {
             Text      = "✖",
-            Location  = new Point(428, 5),
-            Size      = new Size(28, 26),
+            Location  = new Point(432, 10),
+            Size      = new Size(28, 28),
             FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(200, 60, 60),
-            ForeColor = Color.White,
+            BackColor = Theme.DarkGrey,
+            ForeColor = Theme.TextOnDark,
             Font      = new Font("Segoe UI", 8f, FontStyle.Bold),
             Cursor    = Cursors.Hand,
             TabStop   = false
         };
-        btnRemove.FlatAppearance.BorderSize = 0;
+        btnRemove.FlatAppearance.BorderSize = 1;
+        btnRemove.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnRemove.FlatAppearance.MouseOverBackColor = Theme.DarkGold;
+        btnRemove.MouseEnter += (_, _) => btnRemove.ForeColor = Theme.TextOnGold;
+        btnRemove.MouseLeave += (_, _) => btnRemove.ForeColor = Theme.TextOnDark;
         btnRemove.Click += (_, _) =>
         {
             panel.Controls.Remove(row);
             row.Dispose();
-            ReflowRows(panel);
         };
+        Theme.RoundCorners(btnRemove, 5);
 
         row.Controls.AddRange(new Control[] { txtField, txtVal, lblIn, btnRemove });
-        row.Width = Math.Max(panel.Width, 480);
-        panel.Resize += (_, _) => row.Width = Math.Max(panel.Width, 480);
+        void FitWidth() => row.Width = Math.Max(panel.ClientSize.Width, 480);
+        FitWidth();
+        panel.Resize += (_, _) => FitWidth();
         panel.Controls.Add(row);
-        panel.ScrollControlIntoView(row);
-    }
-
-    private static void ReflowRows(Panel panel)
-    {
-        int top = 8;
-        foreach (Control c in panel.Controls) { c.Top = top; top = c.Bottom + 5; }
+        if (scrollIntoView) panel.ScrollControlIntoView(row);
     }
 
     // ── Print ─────────────────────────────────────────────────────────────────
@@ -218,7 +243,6 @@ public partial class CustomerForm : Form
                 if (c is TextBox tb) { if (tField == null) tField = tb; else tVal = tb; }
 
             var fn = tField?.Text.Trim() ?? "";
-            if (string.IsNullOrWhiteSpace(fn)) continue;
             list.Add((fn, tVal?.Text.Trim() ?? "—"));
         }
         return list;
@@ -234,22 +258,26 @@ public partial class CustomerForm : Form
         // ── Shop Header ───────────────────────────────────────────────
         using var shopFont   = new Font("Segoe UI", 22f, FontStyle.Bold);
         using var subFont    = new Font("Segoe UI", 10f, FontStyle.Italic);
-        using var goldBrush  = new SolidBrush(Color.FromArgb(160, 110, 0));
-        using var darkBrush  = new SolidBrush(Color.FromArgb(30, 25, 10));
-        using var grayBrush  = new SolidBrush(Color.FromArgb(100, 100, 100));
+        using var goldBrush  = new SolidBrush(Theme.DarkGold);
+        using var darkBrush  = new SolidBrush(Theme.DarkGrey);
+        using var grayBrush  = new SolidBrush(Color.FromArgb(180, Theme.DarkGrey));
         using var whiteBrush = new SolidBrush(Color.White);
 
-        // Header background bar
-        using var headerBg = new SolidBrush(Color.FromArgb(30, 25, 10));
-        g.FillRectangle(headerBg, x - 20, y - 10, pageW + 40, 60);
+        float titleH    = shopFont.GetHeight(g);
+        float subtitleY = y + titleH + 2;
+        float subtitleH = subFont.GetHeight(g);
 
-        g.DrawString("✂  TopStitch Tailor", shopFont, goldBrush, x, y);
+        // Header background bar
+        using var headerBg = new SolidBrush(Theme.DarkGrey);
+        g.FillRectangle(headerBg, x - 20, y - 10, pageW + 40, subtitleY + subtitleH - y + 16);
+
+        g.DrawString("✂  TopStitch Tailor", shopFont, new SolidBrush(Theme.DarkGold), x, y);
         g.DrawString("Professional Tailoring Services", subFont,
-            new SolidBrush(Color.FromArgb(200, 175, 110)), x + 2, y + 32);
-        y += 80;
+            new SolidBrush(Theme.TextOnDark), x + 2, subtitleY);
+        y = subtitleY + subtitleH + 26;
 
         // ── Divider ───────────────────────────────────────────────────
-        using var goldPen = new Pen(Color.FromArgb(184, 134, 11), 2);
+        using var goldPen = new Pen(Theme.DarkGold, 2);
         g.DrawLine(goldPen, x - 20, y, x + pageW + 20, y);
         y += 14;
 
@@ -276,29 +304,38 @@ public partial class CustomerForm : Form
         g.DrawString($"{_printSection} Measurements", secFont, goldBrush, x, y);
         y += 28;
 
-        // ── Table Header ──────────────────────────────────────────────
-        using var tableHeaderBg = new SolidBrush(Color.FromArgb(50, 42, 20));
-        using var colFont       = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-        float col1 = x, col2 = x + pageW * 0.65f;
-        float rowH = 26f;
+        // ── Measurement Grid — two label:value pairs per line, right-to-left ───
+        using var rowFont     = new Font("Segoe UI", 10f);
+        using var rowAltBg    = new SolidBrush(Theme.NormalGrey);
+        using var gridBorder  = new Pen(Theme.DarkGrey);
+        using var labelFormat = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
+        using var valueFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
 
-        g.FillRectangle(tableHeaderBg, x - 5, y, pageW + 10, rowH);
-        g.DrawString("Measurement", colFont, goldBrush, col1 + 4, y + 5);
-        g.DrawString("Value (inches)", colFont, goldBrush, col2, y + 5);
-        y += rowH;
+        float rowH   = 32f;
+        float gap    = 16f;
+        float halfW  = (pageW - gap) / 2f;
+        float valueW = 60f;
 
-        // ── Table Rows ────────────────────────────────────────────────
-        using var rowFont    = new Font("Segoe UI", 10f);
-        using var rowAltBg   = new SolidBrush(Color.FromArgb(255, 250, 225));
-        using var rowBorder  = new Pen(Color.FromArgb(220, 200, 140));
+        void DrawCell(float cellX, string field, string val, bool shade)
+        {
+            if (shade) g.FillRectangle(rowAltBg, cellX, y, halfW, rowH);
+            g.DrawRectangle(gridBorder, cellX, y, halfW, rowH);
+            g.DrawLine(gridBorder, cellX + valueW, y, cellX + valueW, y + rowH);
+            g.DrawString(val, rowFont, darkBrush, new RectangleF(cellX, y, valueW, rowH), valueFormat);
+            g.DrawString(field + " :", Theme.UrduFont, darkBrush,
+                new RectangleF(cellX + valueW + 4, y, halfW - valueW - 8, rowH), labelFormat);
+        }
 
         bool alt = false;
-        foreach (var (field, val) in _printRows)
+        for (int i = 0; i < _printRows.Count; i += 2)
         {
-            if (alt) g.FillRectangle(rowAltBg, x - 5, y, pageW + 10, rowH);
-            g.DrawRectangle(rowBorder, x - 5, y, pageW + 10, rowH);
-            g.DrawString(field, rowFont, darkBrush, col1 + 4, y + 5);
-            g.DrawString(val,   rowFont, darkBrush, col2,     y + 5);
+            var (f1, v1) = _printRows[i];
+            DrawCell(x + halfW + gap, f1, v1, alt);
+            if (i + 1 < _printRows.Count)
+            {
+                var (f2, v2) = _printRows[i + 1];
+                DrawCell(x, f2, v2, alt);
+            }
             y  += rowH;
             alt = !alt;
         }

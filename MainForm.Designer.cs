@@ -38,103 +38,104 @@ partial class MainForm
         // 
         // panelHeader
         // 
-        panelHeader.BackColor = Color.FromArgb(30, 25, 10);
+        panelHeader.BackColor = Theme.DarkGrey;
         panelHeader.Controls.Add(lblTitle);
         panelHeader.Controls.Add(lblSubtitle);
         panelHeader.Dock = DockStyle.Top;
         panelHeader.Location = new Point(0, 0);
         panelHeader.Name = "panelHeader";
-        panelHeader.Size = new Size(960, 77);
+        panelHeader.Size = new Size(960, 80);
         panelHeader.TabIndex = 0;
-        // 
+        //
         // lblTitle
-        // 
+        //
         lblTitle.AutoSize = true;
         lblTitle.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
-        lblTitle.ForeColor = Color.FromArgb(184, 134, 11);
-        lblTitle.Location = new Point(18, 12);
+        lblTitle.ForeColor = Theme.DarkGold;
+        lblTitle.Location = new Point(20, 15);
         lblTitle.Name = "lblTitle";
-        lblTitle.Size = new Size(288, 41);
         lblTitle.TabIndex = 0;
         lblTitle.Text = "✂TopStitch Tailor";
         lblTitle.Click += lblTitle_Click;
-        // 
+        //
         // lblSubtitle
-        // 
+        //
         lblSubtitle.AutoSize = true;
-        lblSubtitle.Font = new Font("Segoe UI", 9F);
-        lblSubtitle.ForeColor = Color.FromArgb(200, 185, 130);
-        lblSubtitle.Location = new Point(18, 53);
+        lblSubtitle.Font = new Font("Segoe UI", 9.5F);
+        lblSubtitle.ForeColor = Theme.TextOnDark;
+        lblSubtitle.Location = new Point(21, 56);
         lblSubtitle.Name = "lblSubtitle";
-        lblSubtitle.Size = new Size(223, 20);
         lblSubtitle.TabIndex = 1;
         lblSubtitle.Text = "Customer Measurement Records";
         // 
         // panelSearch
         // 
-        panelSearch.BackColor = Color.FromArgb(255, 248, 215);
+        panelSearch.BackColor = Theme.DarkGrey;
         panelSearch.Controls.Add(lblSearch);
         panelSearch.Controls.Add(txtSearch);
         panelSearch.Controls.Add(btnSearch);
         panelSearch.Controls.Add(btnClear);
         panelSearch.Dock = DockStyle.Top;
-        panelSearch.Location = new Point(0, 77);
+        panelSearch.Location = new Point(0, 80);
         panelSearch.Name = "panelSearch";
         panelSearch.Size = new Size(960, 58);
         panelSearch.TabIndex = 1;
-        // 
+        //
         // lblSearch
-        // 
+        //
         lblSearch.AutoSize = true;
         lblSearch.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
-        lblSearch.ForeColor = Color.FromArgb(30, 25, 10);
-        lblSearch.Location = new Point(14, 17);
+        lblSearch.ForeColor = Theme.TextOnDark;
+        lblSearch.Location = new Point(20, 18);
         lblSearch.Name = "lblSearch";
-        lblSearch.Size = new Size(102, 23);
         lblSearch.TabIndex = 0;
-        lblSearch.Text = "🔍  Search:";
-        // 
+        lblSearch.Text = "Search:";
+        //
         // txtSearch
-        // 
+        //
+        txtSearch.BackColor = Theme.NormalGrey;
+        txtSearch.ForeColor = Theme.TextOnNormal;
         txtSearch.Font = new Font("Segoe UI", 10F);
-        txtSearch.Location = new Point(140, 14);
+        txtSearch.Location = new Point(96, 14);
         txtSearch.Name = "txtSearch";
         txtSearch.PlaceholderText = " Naam ya phone number...";
-        txtSearch.Size = new Size(270, 30);
+        txtSearch.Size = new Size(314, 30);
         txtSearch.TabIndex = 0;
         txtSearch.TextChanged += txtSearch_TextChanged;
-        // 
+        //
         // btnSearch
-        // 
-        btnSearch.BackColor = Color.FromArgb(184, 134, 11);
+        //
+        btnSearch.BackColor = Theme.DarkGold;
         btnSearch.Cursor = Cursors.Hand;
         btnSearch.FlatStyle = FlatStyle.Flat;
         btnSearch.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        btnSearch.ForeColor = Color.FromArgb(30, 25, 10);
+        btnSearch.ForeColor = Theme.DarkGrey;
         btnSearch.Location = new Point(420, 13);
         btnSearch.Name = "btnSearch";
         btnSearch.Size = new Size(90, 32);
         btnSearch.TabIndex = 1;
         btnSearch.Text = "Search";
         btnSearch.UseVisualStyleBackColor = false;
-        // 
+        btnSearch.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+        //
         // btnClear
-        // 
-        btnClear.BackColor = Color.FromArgb(150, 140, 100);
+        //
+        btnClear.BackColor = Theme.NormalGrey;
         btnClear.Cursor = Cursors.Hand;
         btnClear.FlatStyle = FlatStyle.Flat;
         btnClear.Font = new Font("Segoe UI", 9.5F);
-        btnClear.ForeColor = Color.White;
+        btnClear.ForeColor = Theme.TextOnNormal;
         btnClear.Location = new Point(518, 13);
         btnClear.Name = "btnClear";
         btnClear.Size = new Size(80, 32);
         btnClear.TabIndex = 2;
         btnClear.Text = "Clear";
         btnClear.UseVisualStyleBackColor = false;
+        btnClear.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
         // 
         // panelBottom
         // 
-        panelBottom.BackColor = Color.FromArgb(255, 248, 215);
+        panelBottom.BackColor = Theme.DarkGrey;
         panelBottom.Controls.Add(btnAdd);
         panelBottom.Controls.Add(btnEdit);
         panelBottom.Controls.Add(btnDelete);
@@ -147,52 +148,57 @@ partial class MainForm
         // 
         // btnAdd
         // 
-        btnAdd.BackColor = Color.FromArgb(34, 120, 34);
+        btnAdd.BackColor = Theme.DarkGold;
         btnAdd.Cursor = Cursors.Hand;
         btnAdd.FlatStyle = FlatStyle.Flat;
         btnAdd.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        btnAdd.ForeColor = Color.White;
+        btnAdd.ForeColor = Theme.DarkGrey;
         btnAdd.Location = new Point(14, 12);
         btnAdd.Name = "btnAdd";
         btnAdd.Size = new Size(155, 33);
         btnAdd.TabIndex = 0;
-        btnAdd.Text = "➕  New Customer";
+        btnAdd.Text = "New Customer";
         btnAdd.UseVisualStyleBackColor = false;
-        // 
+        btnAdd.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+        //
         // btnEdit
-        // 
-        btnEdit.BackColor = Color.FromArgb(184, 134, 11);
+        //
+        btnEdit.BackColor = Theme.NormalGrey;
         btnEdit.Cursor = Cursors.Hand;
         btnEdit.FlatStyle = FlatStyle.Flat;
         btnEdit.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        btnEdit.ForeColor = Color.FromArgb(30, 25, 10);
+        btnEdit.ForeColor = Theme.TextOnNormal;
         btnEdit.Location = new Point(178, 12);
         btnEdit.Name = "btnEdit";
-        btnEdit.Size = new Size(100, 33);
+        btnEdit.Size = new Size(92, 33);
         btnEdit.TabIndex = 1;
-        btnEdit.Text = "✏️  Edit";
+        btnEdit.Text = "Edit";
         btnEdit.UseVisualStyleBackColor = false;
-        // 
+        btnEdit.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
+        //
         // btnDelete
-        // 
-        btnDelete.BackColor = Color.FromArgb(180, 30, 30);
+        //
+        btnDelete.BackColor = Theme.DarkGrey;
         btnDelete.Cursor = Cursors.Hand;
         btnDelete.FlatStyle = FlatStyle.Flat;
         btnDelete.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        btnDelete.ForeColor = Color.White;
-        btnDelete.Location = new Point(287, 12);
+        btnDelete.ForeColor = Theme.TextOnDark;
+        btnDelete.Location = new Point(278, 12);
         btnDelete.Name = "btnDelete";
-        btnDelete.Size = new Size(100, 33);
+        btnDelete.Size = new Size(92, 33);
         btnDelete.TabIndex = 2;
-        btnDelete.Text = "🗑️  Delete";
+        btnDelete.Text = "Delete";
         btnDelete.UseVisualStyleBackColor = false;
+        btnDelete.FlatAppearance.BorderSize = 2;
+        btnDelete.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnDelete.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
         // 
         // lblStatus
         // 
         lblStatus.AutoSize = true;
         lblStatus.Font = new Font("Segoe UI", 9.5F);
-        lblStatus.ForeColor = Color.FromArgb(100, 90, 50);
-        lblStatus.Location = new Point(410, 19);
+        lblStatus.ForeColor = Theme.TextOnDark;
+        lblStatus.Location = new Point(392, 19);
         lblStatus.Name = "lblStatus";
         lblStatus.Size = new Size(53, 21);
         lblStatus.TabIndex = 3;
@@ -203,30 +209,30 @@ partial class MainForm
         grid.AllowUserToAddRows = false;
         grid.AllowUserToDeleteRows = false;
         grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        grid.BackgroundColor = Color.White;
+        grid.BackgroundColor = Theme.NormalGrey;
         grid.BorderStyle = BorderStyle.None;
-        grid.ColumnHeadersHeight = 38;
+        grid.ColumnHeadersHeight = 42;
         grid.Columns.AddRange(new DataGridViewColumn[] { colId, colName, colPhone, colAddress, colDate });
         grid.Dock = DockStyle.Fill;
-        grid.GridColor = Color.FromArgb(230, 215, 160);
-        grid.Location = new Point(0, 135);
+        grid.Location = new Point(0, 138);
         grid.MultiSelect = false;
         grid.Name = "grid";
         grid.ReadOnly = true;
         grid.RowHeadersVisible = false;
         grid.RowHeadersWidth = 51;
-        grid.RowTemplate.Height = 32;
+        grid.RowTemplate.Height = 36;
         grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         grid.Size = new Size(960, 429);
         grid.TabIndex = 0;
-        // 
+        //
         // colId
-        // 
+        //
         colId.FillWeight = 5F;
         colId.HeaderText = "#";
         colId.MinimumWidth = 6;
         colId.Name = "colId";
         colId.ReadOnly = true;
+        colId.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
         // 
         // colName
         // 
@@ -264,7 +270,7 @@ partial class MainForm
         // 
         AutoScaleDimensions = new SizeF(9F, 21F);
         AutoScaleMode = AutoScaleMode.Font;
-        BackColor = Color.FromArgb(255, 252, 235);
+        BackColor = Theme.NormalGrey;
         ClientSize = new Size(960, 620);
         Controls.Add(grid);
         Controls.Add(panelBottom);

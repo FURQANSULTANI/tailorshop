@@ -6,18 +6,33 @@ public partial class MainForm : Form {
     public MainForm() {
         InitializeComponent();
         ApplyGridStyles();
+        ApplyPolish();
         WireEvents();
         Database.Initialize();
         LoadCustomers();
     }
 
+    private void ApplyPolish() {
+        foreach (var btn in new[] { btnSearch, btnClear, btnAdd, btnEdit, btnDelete })
+            Theme.RoundCorners(btn, 6);
+
+        panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
+        panelBottom.Controls.Add(Theme.AccentDivider(DockStyle.Top));
+    }
+
     private void ApplyGridStyles() {
-        grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(30, 25, 10);
-        grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(184, 134, 11);
+        grid.EnableHeadersVisualStyles = false;
+        grid.ColumnHeadersDefaultCellStyle.BackColor = Theme.DarkGrey;
+        grid.ColumnHeadersDefaultCellStyle.ForeColor = Theme.DarkGold;
         grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-        grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(255, 230, 100);
-        grid.DefaultCellStyle.SelectionForeColor = Color.FromArgb(30, 25, 10);
-        grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(255, 252, 230);
+        grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
+        grid.DefaultCellStyle.BackColor = Theme.NormalGrey;
+        grid.DefaultCellStyle.ForeColor = Theme.TextOnNormal;
+        grid.DefaultCellStyle.SelectionBackColor = Theme.DarkGold;
+        grid.DefaultCellStyle.SelectionForeColor = Theme.DarkGrey;
+        grid.DefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
+        grid.AlternatingRowsDefaultCellStyle.BackColor = Theme.Shade(Theme.NormalGrey, 0.045f);
+        grid.GridColor = Theme.DarkGrey;
     }
 
     private void WireEvents() {

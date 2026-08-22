@@ -156,10 +156,14 @@ public class Database
     // Default fields shown when creating a new customer
     public static readonly Dictionary<string, List<string>> DefaultFields = new()
     {
-        ["Shirt"]          = new() { "Chest (Seena)", "Shoulder (Kandha)", "Length (Lambai)", "Sleeve (Bazu)", "Neck (Gala)" },
-        ["Shalwar Kameez"] = new() { "Kameez Length", "Chest (Seena)", "Waist (Kamar)", "Hip (Ghera)", "Shalwar Length", "Paincha" },
-        ["Pant"]           = new() { "Length (Lambai)", "Waist (Kamar)", "Hip (Ghera)", "Thigh (Ran)", "Knee (Ghutna)", "Bottom (Paincha)" },
-        ["Coat / Sherwani"]= new() { "Length", "Chest (Seena)", "Shoulder (Kandha)", "Sleeve (Bazu)" },
+        ["Shirt"]          = new() { "چھاتی", "کندھا", "لمبائی", "بازو", "گلا" },
+        ["Shalwar Kameez"] = new() {
+            "لمبائی (قمیض)", "چھاتی", "کمر", "گھیرا", "لمبائی (شلوار)", "پائنچہ",
+            "بازو", "تیرا", "گلا", "موڑا", "آستین", "موری", "شلوار پانچہ",
+            "کالر", "بین", "فرنٹ پاکٹ", "سائیڈ پاکٹ", "فرنٹ پٹی", "کف"
+        },
+        ["Pant"]           = new() { "لمبائی", "کمر", "گھیرا", "ران", "گھٹنا", "پائنچہ" },
+        ["Coat / Sherwani"]= new() { "لمبائی", "چھاتی", "کندھا", "بازو" },
     };
 
     private static Customer MapCustomer(SqliteDataReader r) => new()
