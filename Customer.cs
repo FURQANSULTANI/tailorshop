@@ -10,12 +10,6 @@ public class Customer
     public string? CreatedAt { get; set; }
     public string? UpdatedAt { get; set; }
 
-    // All measurements stored dynamically
-    public List<Measurement> Measurements { get; set; } = new();
-
-    public List<Measurement> ForSection(string section) =>
-        Measurements.Where(m => m.Section == section).ToList();
-
     public override string ToString() => Name;
 }
 

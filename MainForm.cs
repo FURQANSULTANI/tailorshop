@@ -70,8 +70,9 @@ public partial class MainForm : Form {
     private void BtnEdit_Click(object? s, EventArgs e) {
         var c = SelectedCustomer();
         if (c == null) { Info("Pehle ek customer select karein."); return; }
-        var full = Database.GetById(c.Id)!;
-        using var frm = new CustomerForm(full);
+        var full  = Database.GetById(c.Id)!;
+        var order = Database.GetLatestOrder(c.Id);
+        using var frm = new CustomerForm(full, order);
         if (frm.ShowDialog() == DialogResult.OK) LoadCustomers(txtSearch.Text);
     }
 

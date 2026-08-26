@@ -67,6 +67,47 @@ public class Database
             alter.ExecuteNonQuery();
         }
         catch (SqliteException) { /* column already exists */ }
+
+        var ordersCmd = conn.CreateCommand();
+        ordersCmd.CommandText = @"
+            CREATE TABLE IF NOT EXISTS Orders (
+                Id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                CustomerId  INTEGER NOT NULL,
+                Status      TEXT NOT NULL DEFAULT 'Pending',
+                CreatedAt   TEXT DEFAULT (datetime('now','localtime')),
+                UpdatedAt   TEXT DEFAULT (datetime('now','localtime')),
+                ReadyAt     TEXT,
+                DeliveredAt TEXT,
+                FOREIGN KEY(CustomerId) REFERENCES Customers(Id) ON DELETE CASCADE
+            );";
+        ordersCmd.ExecuteNonQuery();
+
+        try
+        {
+            var alter = conn.CreateCommand();
+            alter.CommandText = "ALTER TABLE Measurements ADD COLUMN OrderId INTEGER";
+            alter.ExecuteNonQuery();
+        }
+        catch (SqliteException) { /* column already exists */ }
+
+        var backfillOrders = conn.CreateCommand();
+        backfillOrders.CommandText = @"
+            INSERT INTO Orders(CustomerId, Status)
+            SELECT c.Id, 'Delivered' FROM Customers c
+            WHERE NOT EXISTS (SELECT 1 FROM Orders o WHERE o.CustomerId = c.Id)";
+        backfillOrders.ExecuteNonQuery();
+
+        var backfillMeasurements = conn.CreateCommand();
+        backfillMeasurements.CommandText = @"
+            UPDATE Measurements
+            SET OrderId = (SELECT o.Id FROM Orders o WHERE o.CustomerId = Measurements.CustomerId ORDER BY o.Id ASC LIMIT 1)
+            WHERE OrderId IS NULL";
+        backfillMeasurements.ExecuteNonQuery();
+
+        var renameCustomerPay = conn.CreateCommand();
+        renameCustomerPay.CommandText =
+            "UPDATE Measurements SET FieldName = 'ادا شدہ رقم' WHERE FieldName = 'کسٹمر پے'";
+        renameCustomerPay.ExecuteNonQuery();
     }
 
     public static List<Customer> GetAllCustomers(string search = "")
@@ -96,10 +137,7 @@ public class Database
         cmd.Parameters.AddWithValue("$id", id);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return null;
-        var c = MapCustomer(r);
-        r.Close();
-        c.Measurements = GetMeasurements(id, conn);
-        return c;
+        return MapCustomer(r);
     }
 
     public static long SaveCustomer(Customer c)
@@ -127,26 +165,6 @@ public class Database
             cmd.Parameters.AddWithValue("$no", (object?)c.Notes ?? DBNull.Value);
             c.Id = Convert.ToInt64(cmd.ExecuteScalar());
 
-            var del = conn.CreateCommand();
-            del.CommandText = "DELETE FROM Measurements WHERE CustomerId=$id";
-            del.Parameters.AddWithValue("$id", c.Id);
-            del.ExecuteNonQuery();
-
-            int order = 0;
-            foreach (var m in c.Measurements)
-            {
-                var ins = conn.CreateCommand();
-                ins.CommandText = @"INSERT INTO Measurements(CustomerId,Section,FieldName,Value,SortOrder,SelectedOptions,Quantity)
-                    VALUES($cid,$sec,$fn,$val,$ord,$sel,$qty)";
-                ins.Parameters.AddWithValue("$cid", c.Id);
-                ins.Parameters.AddWithValue("$sec", m.Section);
-                ins.Parameters.AddWithValue("$fn", m.FieldName);
-                ins.Parameters.AddWithValue("$val", (object?)m.Value ?? DBNull.Value);
-                ins.Parameters.AddWithValue("$ord", order++);
-                ins.Parameters.AddWithValue("$sel", (object?)m.SelectedOptions ?? DBNull.Value);
-                ins.Parameters.AddWithValue("$qty", (object?)m.Quantity ?? DBNull.Value);
-                ins.ExecuteNonQuery();
-            }
             tx.Commit();
             return c.Id;
         }
@@ -163,7 +181,7 @@ public class Database
         cmd.ExecuteNonQuery();
     }
 
-    public static List<Measurement> GetMeasurements(long customerId, SqliteConnection? conn = null)
+    public static List<Measurement> GetMeasurements(long orderId, SqliteConnection? conn = null)
     {
         bool owns = conn == null;
         conn ??= new SqliteConnection(ConnectionString);
@@ -173,8 +191,8 @@ public class Database
             var list = new List<Measurement>();
             var cmd = conn.CreateCommand();
             cmd.CommandText = @"SELECT Section,FieldName,Value,SelectedOptions,Quantity FROM Measurements
-                WHERE CustomerId=$id ORDER BY Section,SortOrder";
-            cmd.Parameters.AddWithValue("$id", customerId);
+                WHERE OrderId=$id ORDER BY Section,SortOrder";
+            cmd.Parameters.AddWithValue("$id", orderId);
             using var r = cmd.ExecuteReader();
             while (r.Read())
                 list.Add(new Measurement
@@ -189,6 +207,112 @@ public class Database
         }
         finally { if (owns) conn.Dispose(); }
     }
+
+    public static Order? GetLatestOrder(long customerId)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM Orders WHERE CustomerId=$cid ORDER BY Id DESC LIMIT 1";
+        cmd.Parameters.AddWithValue("$cid", customerId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return null;
+        var o = MapOrder(r);
+        r.Close();
+        o.Measurements = GetMeasurements(o.Id, conn);
+        return o;
+    }
+
+    public static List<Order> GetOrdersForCustomer(long customerId)
+    {
+        var ids = new List<long>();
+        using (var conn = new SqliteConnection(ConnectionString))
+        {
+            conn.Open();
+            var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT Id FROM Orders WHERE CustomerId=$cid ORDER BY Id DESC";
+            cmd.Parameters.AddWithValue("$cid", customerId);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) ids.Add(Convert.ToInt64(r["Id"]));
+        }
+        return ids.Select(GetOrderById).Where(o => o != null).Select(o => o!).ToList();
+    }
+
+    public static Order? GetOrderById(long orderId)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM Orders WHERE Id=$id";
+        cmd.Parameters.AddWithValue("$id", orderId);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return null;
+        var o = MapOrder(r);
+        r.Close();
+        o.Measurements = GetMeasurements(o.Id, conn);
+        return o;
+    }
+
+    public static long SaveOrder(Order o)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        using var tx = conn.BeginTransaction();
+        try
+        {
+            var cmd = conn.CreateCommand();
+            if (o.Id == 0)
+            {
+                cmd.CommandText = @"INSERT INTO Orders(CustomerId,Status)
+                    VALUES($cid,$status); SELECT last_insert_rowid();";
+            }
+            else
+            {
+                cmd.CommandText = @"UPDATE Orders SET Status=$status,
+                    UpdatedAt=datetime('now','localtime') WHERE Id=$id; SELECT $id;";
+                cmd.Parameters.AddWithValue("$id", o.Id);
+            }
+            cmd.Parameters.AddWithValue("$cid", o.CustomerId);
+            cmd.Parameters.AddWithValue("$status", o.Status);
+            o.Id = Convert.ToInt64(cmd.ExecuteScalar());
+
+            var del = conn.CreateCommand();
+            del.CommandText = "DELETE FROM Measurements WHERE OrderId=$id";
+            del.Parameters.AddWithValue("$id", o.Id);
+            del.ExecuteNonQuery();
+
+            int sortOrder = 0;
+            foreach (var m in o.Measurements)
+            {
+                var ins = conn.CreateCommand();
+                ins.CommandText = @"INSERT INTO Measurements(CustomerId,OrderId,Section,FieldName,Value,SortOrder,SelectedOptions,Quantity)
+                    VALUES($cid,$oid,$sec,$fn,$val,$ord,$sel,$qty)";
+                ins.Parameters.AddWithValue("$cid", o.CustomerId);
+                ins.Parameters.AddWithValue("$oid", o.Id);
+                ins.Parameters.AddWithValue("$sec", m.Section);
+                ins.Parameters.AddWithValue("$fn", m.FieldName);
+                ins.Parameters.AddWithValue("$val", (object?)m.Value ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$ord", sortOrder++);
+                ins.Parameters.AddWithValue("$sel", (object?)m.SelectedOptions ?? DBNull.Value);
+                ins.Parameters.AddWithValue("$qty", (object?)m.Quantity ?? DBNull.Value);
+                ins.ExecuteNonQuery();
+            }
+            tx.Commit();
+            return o.Id;
+        }
+        catch { tx.Rollback(); throw; }
+    }
+
+    private static Order MapOrder(SqliteDataReader r) => new()
+    {
+        Id          = Convert.ToInt64(r["Id"]),
+        CustomerId  = Convert.ToInt64(r["CustomerId"]),
+        Status      = r["Status"].ToString()!,
+        CreatedAt   = r["CreatedAt"]?.ToString(),
+        UpdatedAt   = r["UpdatedAt"]?.ToString(),
+        ReadyAt     = r["ReadyAt"] == DBNull.Value ? null : r["ReadyAt"].ToString(),
+        DeliveredAt = r["DeliveredAt"] == DBNull.Value ? null : r["DeliveredAt"].ToString(),
+    };
 
     // Default fields shown when creating a new customer
     public static readonly Dictionary<string, List<FieldDef>> DefaultFields = new()
