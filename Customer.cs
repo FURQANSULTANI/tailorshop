@@ -21,7 +21,9 @@ public class Customer
 
 public class Measurement
 {
-    public string  Section   { get; set; } = "";
-    public string  FieldName { get; set; } = "";
-    public string? Value     { get; set; }
+    public string  Section         { get; set; } = "";
+    public string  FieldName       { get; set; } = "";
+    public string? Value           { get; set; }
+    public string? SelectedOptions { get; set; } // comma-separated checkbox options that are ticked
+    public string? Quantity        { get; set; } // number of suits, for Point Of Sale line items
 }

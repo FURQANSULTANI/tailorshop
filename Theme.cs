@@ -17,7 +17,12 @@ public static class Theme
     // "Urdu Typesetting" ships with Windows (complex-script/Arabic support since Vista) and
     // renders proper Nastaliq-style joined letterforms. If it's ever missing on a machine,
     // Font silently substitutes the nearest available font instead of throwing.
-    public static readonly Font UrduFont = new("Urdu Typesetting", 12f);
+    public static readonly Font UrduFont      = new("Urdu Typesetting", 12f);
+
+    // Nastaliq's diagonal, stacked letterforms need more line-height per point size than
+    // Latin text — this smaller size is for tight fixed-height spots (checkbox chips) where
+    // the full-size font would clip against the control's edge.
+    public static readonly Font UrduFontSmall = new("Urdu Typesetting", 9f);
 
     public static Color Hover(Color baseColor) =>
         baseColor.GetBrightness() > 0.5f

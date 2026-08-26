@@ -185,14 +185,14 @@ partial class CustomerForm
         this.AutoScaleMode       = AutoScaleMode.Font;
         this.BackColor           = Theme.NormalGrey;
         this.CancelButton        = this.btnCancel;
-        this.ClientSize          = new Size(720, 660);
+        this.ClientSize          = new Size(1020, 760);
         this.Controls.Add(this.tabControl);
         this.Controls.Add(this.panelBottom);
         this.Controls.Add(this.panelHeader);
         this.Font                = new Font("Segoe UI", 9.5f);
         this.FormBorderStyle     = FormBorderStyle.Sizable;
         this.MaximizeBox         = true;
-        this.MinimumSize         = new Size(650, 500);
+        this.MinimumSize         = new Size(800, 600);
         this.Name                = "CustomerForm";
         this.StartPosition       = FormStartPosition.CenterParent;
     }

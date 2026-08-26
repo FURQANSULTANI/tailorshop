@@ -24,6 +24,8 @@ public partial class MainForm : Form {
         grid.EnableHeadersVisualStyles = false;
         grid.ColumnHeadersDefaultCellStyle.BackColor = Theme.DarkGrey;
         grid.ColumnHeadersDefaultCellStyle.ForeColor = Theme.DarkGold;
+        grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Theme.DarkGrey;
+        grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = Theme.DarkGold;
         grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
         grid.DefaultCellStyle.BackColor = Theme.NormalGrey;
@@ -84,7 +86,7 @@ public partial class MainForm : Form {
     }
 
     private static void Info(string msg) =>
-        MessageBox.Show(msg, "TopStitch Tailor", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(msg, "TailorShop", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
     private void lblTitle_Click(object sender, EventArgs e) {
 
