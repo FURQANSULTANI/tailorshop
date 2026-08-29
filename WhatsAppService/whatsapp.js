@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const qrcode = require('qrcode');
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -10,10 +11,46 @@ function getState() {
     return state;
 }
 
+function readConfiguredBrowser() {
+    const configPath = path.join(__dirname, '..', 'WhatsAppConfig.env');
+    if (!fs.existsSync(configPath)) return null;
+    const match = fs.readFileSync(configPath, 'utf8').match(/^WHATSAPP_BROWSER_PATH=(.+)$/m);
+    const value = match ? match[1].trim() : '';
+    return value && fs.existsSync(value) ? value : null;
+}
+
+function findSystemBrowser() {
+    const configured = readConfiguredBrowser();
+    if (configured) return configured;
+
+    const localApp = process.env.LOCALAPPDATA || '';
+    const pf       = process.env['ProgramFiles'] || 'C:\\Program Files';
+    const pf86     = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
+
+    const candidates = [
+        path.join(pf,   'Google\\Chrome\\Application\\chrome.exe'),
+        path.join(pf86, 'Google\\Chrome\\Application\\chrome.exe'),
+        path.join(localApp, 'Google\\Chrome\\Application\\chrome.exe'),
+        path.join(pf86, 'Microsoft\\Edge\\Application\\msedge.exe'),
+        path.join(pf,   'Microsoft\\Edge\\Application\\msedge.exe'),
+        path.join(pf,   'BraveSoftware\\Brave-Browser\\Application\\brave.exe')
+    ];
+    return candidates.find((p) => fs.existsSync(p)) || null;
+}
+
 function start() {
+    const puppeteerOptions = { args: ['--no-sandbox', '--disable-setuid-sandbox'] };
+    const browser = findSystemBrowser();
+    if (browser) {
+        puppeteerOptions.executablePath = browser;
+        console.log(`Using system browser: ${browser}`);
+    } else {
+        console.log('No system browser found, falling back to bundled Chromium');
+    }
+
     client = new Client({
         authStrategy: new LocalAuth({ dataPath: path.join(__dirname, '.wwebjs_auth') }),
-        puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+        puppeteer: puppeteerOptions
     });
 
     client.on('qr', async (qr) => {
@@ -40,7 +77,14 @@ function start() {
 
     client.initialize().catch((err) => {
         console.error('Failed to initialize WhatsApp client', err);
-        state = { status: 'disconnected', qr: null };
+        const missingBrowser = /Could not find (Chrome|browser)|Failed to launch/i.test(err.message || '');
+        state = {
+            status: 'error',
+            qr: null,
+            error: missingBrowser
+                ? 'Chrome ya Edge browser system par nahi mila. Google Chrome install karein, ya WhatsAppConfig.env mein WHATSAPP_BROWSER_PATH set karein.'
+                : (err.message || 'WhatsApp start nahi ho saka')
+        };
     });
 }
 

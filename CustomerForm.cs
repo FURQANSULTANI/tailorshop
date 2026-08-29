@@ -13,9 +13,6 @@ public partial class CustomerForm : Form
     private string _printSection = "";
     private List<(string Field, string Value)> _printRows = new();
 
-    private static readonly Color Gold   = Theme.DarkGold;
-    private static readonly Color DarkBg = Theme.DarkGrey;
-
     public CustomerForm(Customer? customer, Order? order = null)
     {
         _isNew    = customer == null;
@@ -40,6 +37,8 @@ public partial class CustomerForm : Form
 
         Theme.RoundCorners(btnSave, 6);
         Theme.RoundCorners(btnCancel, 6);
+        Theme.ApplyLightHover(btnCancel);
+        Theme.PaintFieldBorders(tabInfo, txtName, txtPhone, txtAddress, txtNotes);
         panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
         panelBottom.Controls.Add(Theme.AccentDivider(DockStyle.Top));
     }
@@ -50,8 +49,8 @@ public partial class CustomerForm : Form
     {
         var tab      = tabControl.TabPages[e.Index];
         var selected = e.Index == tabControl.SelectedIndex;
-        var back     = selected ? Theme.DarkGold : Theme.DarkGrey;
-        var fore     = selected ? Theme.TextOnGold : Theme.TextOnDark;
+        var back     = selected ? Theme.DarkGrey : Theme.NormalGrey;
+        var fore     = selected ? Theme.TextOnDark : Theme.TextOnNormal;
 
         using var backBrush = new SolidBrush(back);
         e.Graphics.FillRectangle(backBrush, e.Bounds);
@@ -92,8 +91,8 @@ public partial class CustomerForm : Form
         var btnAddField = new Button
         {
             Text      = "+  Add Field",
-            BackColor = Gold,
-            ForeColor = DarkBg,
+            BackColor = Theme.NormalGrey,
+            ForeColor = Theme.TextOnNormal,
             FlatStyle = FlatStyle.Flat,
             Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
             Size      = new Size(130, 32),
@@ -101,7 +100,7 @@ public partial class CustomerForm : Form
             Cursor    = Cursors.Hand
         };
         btnAddField.FlatAppearance.BorderSize = 0;
-        btnAddField.FlatAppearance.MouseOverBackColor = Theme.Hover(Gold);
+        Theme.ApplyLightHover(btnAddField);
         btnAddField.Click += (_, _) =>
         {
             if (isPos)
@@ -131,7 +130,7 @@ public partial class CustomerForm : Form
             Cursor    = Cursors.Hand
         };
         btnPrint.FlatAppearance.BorderSize = 0;
-        btnPrint.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
+        Theme.ApplyLightHover(btnPrint);
         btnPrint.Click += (_, _) => PrintSection(section);
         Theme.RoundCorners(btnPrint, 6);
 
@@ -145,7 +144,7 @@ public partial class CustomerForm : Form
             {
                 Text      = "+  New Slip",
                 BackColor = Theme.DarkGold,
-                ForeColor = Theme.DarkGrey,
+                ForeColor = Theme.TextOnGold,
                 FlatStyle = FlatStyle.Flat,
                 Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 Size      = new Size(110, 32),
@@ -182,7 +181,7 @@ public partial class CustomerForm : Form
             _sectionPanels[section] = curInner;
             posRelayout = curRelayout;
 
-            BuildPosFields(curInner, section, existing, () => { RecalculatePos(section); curRelayout(); });
+            BuildPosFields(curInner, section, existing, () => { RecalculatePos(section); curRelayout(); }, Theme.DarkGrey);
             curRelayout();
 
             var savedPay = existing.FirstOrDefault(m => m.FieldName == CustomerPayFieldName)?.Value;
@@ -218,12 +217,14 @@ public partial class CustomerForm : Form
 
     private Panel AddFieldRowCore(FlowLayoutPanel panel, FieldDef def, string value, string[] selectedOptions,
         bool scrollIntoView = true, Action? onChanged = null, string? quantity = null,
-        bool removable = true, object? rowTag = null)
+        bool removable = true, object? rowTag = null, Color? accent = null)
     {
+        var rowAccent = accent ?? Theme.DarkGrey;
         bool showValue      = def.Kind is FieldKind.Text or FieldKind.Both;
         bool showCheckboxes = def.Kind is FieldKind.Checkbox or FieldKind.Both;
 
         var row = new Panel { Height = 48, Margin = new Padding(0, 0, 0, 6), BackColor = Theme.NormalGrey, Tag = rowTag };
+        var bordered = new List<Control>();
 
         int cursorX = 12;
 
@@ -242,6 +243,7 @@ public partial class CustomerForm : Form
             PlaceholderText = "Field ka naam..."
         };
         row.Controls.Add(txtField);
+        bordered.Add(txtField);
         cursorX += txtField.Width + 12;
 
         if (def.HasQuantity)
@@ -262,6 +264,7 @@ public partial class CustomerForm : Form
             txtQty.KeyPress += (_, e) => { if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar)) e.Handled = true; };
             if (onChanged != null) txtQty.TextChanged += (_, _) => onChanged();
             row.Controls.Add(txtQty);
+            bordered.Add(txtQty);
             cursorX += txtQty.Width + 4;
 
             var lblX = new Label
@@ -301,6 +304,7 @@ public partial class CustomerForm : Form
             }
             if (onChanged != null) txtVal.TextChanged += (_, _) => onChanged();
             row.Controls.Add(txtVal);
+            bordered.Add(txtVal);
             cursorX += txtVal.Width + 4;
 
             var lblIn = new Label
@@ -336,12 +340,16 @@ public partial class CustomerForm : Form
                 cb.Width = Math.Max(95, TextRenderer.MeasureText(opt, Theme.UrduFontSmall).Width + 52);
                 cb.FlatAppearance.BorderSize = 1;
                 cb.FlatAppearance.BorderColor = Theme.DarkGrey;
+                cb.FlatAppearance.CheckedBackColor = Theme.DeleteAccent;
+                cb.FlatAppearance.MouseOverBackColor = Theme.DarkGrey;
                 void UpdateCbColors() {
-                    cb.BackColor = cb.Checked ? Theme.DarkGold : Theme.NormalGrey;
-                    cb.ForeColor = cb.Checked ? Theme.TextOnGold : Theme.TextOnNormal;
+                    cb.BackColor = cb.Checked ? Theme.DeleteAccent : Theme.NormalGrey;
+                    cb.ForeColor = cb.Checked ? Theme.TextOnDeleteAccent : Theme.TextOnNormal;
                 }
                 UpdateCbColors();
                 cb.CheckedChanged += (_, _) => UpdateCbColors();
+                cb.MouseEnter += (_, _) => cb.ForeColor = Theme.TextOnDark;
+                cb.MouseLeave += (_, _) => UpdateCbColors();
                 row.Controls.Add(cb);
                 cursorX += cb.Width + 10;
             }
@@ -355,16 +363,16 @@ public partial class CustomerForm : Form
                 Location  = new Point(cursorX, 11),
                 Size      = new Size(fieldHeight, fieldHeight),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Theme.DarkGrey,
+                BackColor = rowAccent,
                 ForeColor = Theme.TextOnDark,
                 Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
                 Cursor    = Cursors.Hand,
                 TabStop   = false
             };
             btnRemove.FlatAppearance.BorderSize = 1;
-            btnRemove.FlatAppearance.BorderColor = Theme.DarkGold;
-            btnRemove.FlatAppearance.MouseOverBackColor = Theme.DarkGold;
-            btnRemove.MouseEnter += (_, _) => btnRemove.ForeColor = Theme.TextOnGold;
+            btnRemove.FlatAppearance.BorderColor = rowAccent;
+            btnRemove.FlatAppearance.MouseOverBackColor = Theme.DeleteAccent;
+            btnRemove.MouseEnter += (_, _) => btnRemove.ForeColor = Theme.TextOnDeleteAccent;
             btnRemove.MouseLeave += (_, _) => btnRemove.ForeColor = Theme.TextOnDark;
             btnRemove.Click += (_, _) =>
             {
@@ -376,6 +384,8 @@ public partial class CustomerForm : Form
             row.Controls.Add(btnRemove);
             cursorX += btnRemove.Width + 12;
         }
+
+        Theme.PaintFieldBorders(row, bordered.ToArray());
 
         void FitWidth() => row.Width = Math.Max(Math.Max(panel.ClientSize.Width, 480), cursorX);
         FitWidth();
@@ -394,9 +404,9 @@ public partial class CustomerForm : Form
     public const string CustomerPayFieldName = "ادا شدہ رقم";
     public const string RemainingFieldName   = "سابقہ رقم";
 
-    private static Panel BuildComputedRow(FlowLayoutPanel panel, string label, object rowTag)
+    private static Panel BuildComputedRow(FlowLayoutPanel panel, string label, object rowTag, Color accent)
     {
-        var row = new Panel { Height = 48, Margin = new Padding(0, 6, 0, 0), BackColor = Theme.DarkGrey, Tag = rowTag };
+        var row = new Panel { Height = 48, Margin = new Padding(0, 6, 0, 0), BackColor = accent, Tag = rowTag };
 
         int cursorX = 12;
 
@@ -409,11 +419,11 @@ public partial class CustomerForm : Form
             Location    = new Point(cursorX, 10),
             Width       = 190,
             Font        = Theme.UrduFont,
-            ForeColor   = Theme.DarkGold,
+            ForeColor   = Theme.TextOnDark,
             RightToLeft = RightToLeft.Yes,
             TextAlign   = HorizontalAlignment.Right,
             BorderStyle = BorderStyle.None,
-            BackColor   = Theme.DarkGrey
+            BackColor   = accent
         };
         row.Controls.Add(lblName);
         cursorX += lblName.Width + 12;
@@ -428,8 +438,8 @@ public partial class CustomerForm : Form
             Width       = 140,
             Font        = new Font("Segoe UI", 12f, FontStyle.Bold),
             BorderStyle = BorderStyle.FixedSingle,
-            BackColor   = Theme.DarkGold,
-            ForeColor   = Theme.TextOnGold,
+            BackColor   = Theme.NormalGrey,
+            ForeColor   = Theme.TextOnNormal,
             TextAlign   = HorizontalAlignment.Center
         };
         row.Controls.Add(txtValue);
@@ -444,6 +454,7 @@ public partial class CustomerForm : Form
             Font      = new Font("Segoe UI", 9f, FontStyle.Bold)
         };
         row.Controls.Add(lblRs);
+        Theme.PaintFieldBorders(row, txtValue);
 
         void FitWidth() => row.Width = Math.Max(panel.ClientSize.Width, 480);
         FitWidth();
@@ -453,10 +464,10 @@ public partial class CustomerForm : Form
     }
 
     private Panel BuildTotalRow(string section) =>
-        BuildComputedRow(_sectionPanels[section], "ٹوٹل بل", TotalRowTag);
+        BuildComputedRow(_sectionPanels[section], "ٹوٹل بل", TotalRowTag, Theme.DarkGrey);
 
     private Panel BuildBaaqayaRow(string section) =>
-        BuildComputedRow(_sectionPanels[section], "باقی", BaaqayaRowTag);
+        BuildComputedRow(_sectionPanels[section], "باقی", BaaqayaRowTag, Theme.DarkGrey);
 
     private void RepositionPosSpecialRows(string section) => RepositionPosSpecialRowsCore(_sectionPanels[section]);
 
@@ -516,7 +527,7 @@ public partial class CustomerForm : Form
         if (baaqayaBox != null) baaqayaBox.Text = (total - paid).ToString("N0");
     }
 
-    private void BuildPosFields(FlowLayoutPanel panel, string section, List<Measurement> existing, Action onChanged)
+    private void BuildPosFields(FlowLayoutPanel panel, string section, List<Measurement> existing, Action onChanged, Color accent)
     {
         if (existing.Count > 0)
         {
@@ -528,23 +539,23 @@ public partial class CustomerForm : Form
                 if (m.FieldName == CustomerPayFieldName) continue;
                 var def      = defsByName.TryGetValue(m.FieldName, out var d) ? d : new FieldDef { Name = m.FieldName };
                 var selected = m.SelectedOptions?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
-                AddFieldRowCore(panel, def, m.Value ?? "", selected, scrollIntoView: false, onChanged: onChanged, quantity: m.Quantity);
+                AddFieldRowCore(panel, def, m.Value ?? "", selected, scrollIntoView: false, onChanged: onChanged, quantity: m.Quantity, accent: accent);
             }
         }
         else
         {
             foreach (var f in Database.DefaultFields[section])
-                AddFieldRowCore(panel, f, "", Array.Empty<string>(), scrollIntoView: false, onChanged: onChanged);
+                AddFieldRowCore(panel, f, "", Array.Empty<string>(), scrollIntoView: false, onChanged: onChanged, accent: accent);
         }
 
-        panel.Controls.Add(BuildComputedRow(panel, "ٹوٹل بل", TotalRowTag));
+        panel.Controls.Add(BuildComputedRow(panel, "ٹوٹل بل", TotalRowTag, accent));
 
         var customerPayValue = existing.FirstOrDefault(m => m.FieldName == CustomerPayFieldName)?.Value ?? "";
         var customerPayDef   = new FieldDef { Name = CustomerPayFieldName, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true };
         AddFieldRowCore(panel, customerPayDef, customerPayValue, Array.Empty<string>(),
             scrollIntoView: false, onChanged: onChanged, removable: false, rowTag: CustomerPayRowTag);
 
-        panel.Controls.Add(BuildComputedRow(panel, "باقی", BaaqayaRowTag));
+        panel.Controls.Add(BuildComputedRow(panel, "باقی", BaaqayaRowTag, accent));
         RecalculatePosCore(panel);
     }
 
@@ -614,19 +625,19 @@ public partial class CustomerForm : Form
         ComputePosTotal(posMeasurements) - ComputePosPaid(posMeasurements);
 
     private (Panel Outer, Panel Body, FlowLayoutPanel Inner, Action Relayout) BuildCollapsibleBar(
-        FlowLayoutPanel outerScroll, string label, bool startExpanded)
+        FlowLayoutPanel outerScroll, string label, bool startExpanded, Color? headerColor = null)
     {
         var outer = new Panel { Height = 36, Margin = new Padding(0, 0, 0, 6), BackColor = Theme.NormalGrey };
 
-        var header = new Panel { Dock = DockStyle.Top, Height = 36, BackColor = Theme.DarkGrey, Cursor = Cursors.Hand };
+        var header = new Panel { Dock = DockStyle.Top, Height = 36, BackColor = headerColor ?? Theme.DarkGrey, Cursor = Cursors.Hand };
         var lblChevron = new Label
         {
-            Text = startExpanded ? "▾" : "▸", ForeColor = Theme.DarkGold, AutoSize = true,
+            Text = startExpanded ? "▾" : "▸", ForeColor = Theme.TextOnDark, AutoSize = true,
             Location = new Point(12, 9), Font = new Font("Segoe UI", 10f, FontStyle.Bold)
         };
         var lblLabel = new Label
         {
-            Text = label, ForeColor = Theme.DarkGold, AutoSize = true,
+            Text = label, ForeColor = Theme.TextOnDark, AutoSize = true,
             Location = new Point(32, 8), Font = new Font("Segoe UI", 10f, FontStyle.Bold)
         };
         header.Controls.Add(lblChevron);
@@ -697,14 +708,14 @@ public partial class CustomerForm : Form
     {
         var panel = _sectionPanels[section];
         var dateText = DateTime.TryParse(pastOrder.CreatedAt, out var dt) ? dt.ToString("dd MMM yyyy") : "";
-        var (outer, body, barScroll, relayout) = BuildCollapsibleBar(panel, dateText, startExpanded: false);
+        var (outer, body, barScroll, relayout) = BuildCollapsibleBar(panel, dateText, startExpanded: false, headerColor: Theme.RowAlt);
 
-        var barToolbar = new Panel { Height = 40, BackColor = Theme.DarkGrey };
+        var barToolbar = new Panel { Height = 40, BackColor = Theme.RowAlt };
         var btnAddField = new Button
         {
             Text      = "+  Add Field",
-            BackColor = Gold,
-            ForeColor = DarkBg,
+            BackColor = Theme.NormalGrey,
+            ForeColor = Theme.TextOnNormal,
             FlatStyle = FlatStyle.Flat,
             Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
             Size      = new Size(120, 28),
@@ -712,14 +723,14 @@ public partial class CustomerForm : Form
             Cursor    = Cursors.Hand
         };
         btnAddField.FlatAppearance.BorderSize = 0;
-        btnAddField.FlatAppearance.MouseOverBackColor = Theme.Hover(Gold);
+        Theme.ApplyLightHover(btnAddField);
         Theme.RoundCorners(btnAddField, 6);
 
         var btnUpdate = new Button
         {
             Text      = "Update Slip",
-            BackColor = Gold,
-            ForeColor = DarkBg,
+            BackColor = Theme.NormalGrey,
+            ForeColor = Theme.TextOnNormal,
             FlatStyle = FlatStyle.Flat,
             Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
             Size      = new Size(120, 28),
@@ -727,7 +738,7 @@ public partial class CustomerForm : Form
             Cursor    = Cursors.Hand
         };
         btnUpdate.FlatAppearance.BorderSize = 0;
-        btnUpdate.FlatAppearance.MouseOverBackColor = Theme.Hover(Gold);
+        Theme.ApplyLightHover(btnUpdate);
         Theme.RoundCorners(btnUpdate, 6);
 
         barToolbar.Controls.Add(btnAddField);
@@ -747,7 +758,7 @@ public partial class CustomerForm : Form
             relayout();
         }
 
-        BuildPosFields(barScroll, section, pastPos, OnBarChanged);
+        BuildPosFields(barScroll, section, pastPos, OnBarChanged, Theme.RowAlt);
         PositionToolbar();
         relayout();
         panel.Resize += (_, _) => PositionToolbar();
@@ -755,7 +766,7 @@ public partial class CustomerForm : Form
         btnAddField.Click += (_, _) =>
         {
             var newDef = new FieldDef { Name = "", ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true };
-            AddFieldRowCore(barScroll, newDef, "", Array.Empty<string>(), onChanged: OnBarChanged);
+            AddFieldRowCore(barScroll, newDef, "", Array.Empty<string>(), onChanged: OnBarChanged, accent: Theme.RowAlt);
             RepositionPosSpecialRowsCore(barScroll);
             OnBarChanged();
         };
@@ -881,9 +892,9 @@ public partial class CustomerForm : Form
         // ── Shop Header ───────────────────────────────────────────────
         using var shopFont   = new Font("Segoe UI", 22f, FontStyle.Bold);
         using var subFont    = new Font("Segoe UI", 10f, FontStyle.Italic);
-        using var goldBrush  = new SolidBrush(Theme.DarkGold);
-        using var darkBrush  = new SolidBrush(Theme.DarkGrey);
-        using var grayBrush  = new SolidBrush(Color.FromArgb(180, Theme.DarkGrey));
+        using var goldBrush  = new SolidBrush(Theme.TextInk);
+        using var darkBrush  = new SolidBrush(Theme.TextInk);
+        using var grayBrush  = new SolidBrush(Color.FromArgb(180, Theme.TextInk));
         using var whiteBrush = new SolidBrush(Color.White);
 
         float titleH    = shopFont.GetHeight(g);
@@ -894,7 +905,7 @@ public partial class CustomerForm : Form
         using var headerBg = new SolidBrush(Theme.DarkGrey);
         g.FillRectangle(headerBg, x - 20, y - 10, pageW + 40, subtitleY + subtitleH - y + 16);
 
-        g.DrawString("✂  TailorShop", shopFont, new SolidBrush(Theme.DarkGold), x, y);
+        g.DrawString("✂  TailorShop", shopFont, new SolidBrush(Theme.TextOnDark), x, y);
         g.DrawString("Professional Tailoring Services", subFont,
             new SolidBrush(Theme.TextOnDark), x + 2, subtitleY);
         y = subtitleY + subtitleH + 26;
@@ -989,7 +1000,17 @@ public partial class CustomerForm : Form
         g.DrawString($"Printed: {DateTime.Now:dd MMM yyyy  hh:mm tt}",
             footerFont, grayBrush, x + pageW - 180, y);
 
+        y += 26;
+        DrawBrandingFooter(g, x, y);
+
         e.HasMorePages = false;
+    }
+
+    private static void DrawBrandingFooter(Graphics g, float x, float y)
+    {
+        using var brandFont = new Font("Segoe UI", 10f, FontStyle.Bold);
+        using var brandBrush = new SolidBrush(Theme.TextInk);
+        g.DrawString("For Business Solution Call 03043713001", brandFont, brandBrush, x, y);
     }
 
     private static void DrawInfoRow(Graphics g, Font font,

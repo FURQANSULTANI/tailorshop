@@ -37,7 +37,7 @@ partial class CustomerForm
 
         this.lblHeader.AutoSize  = true;
         this.lblHeader.Font      = new Font("Segoe UI", 14f, FontStyle.Bold);
-        this.lblHeader.ForeColor = Theme.DarkGold;
+        this.lblHeader.ForeColor = Theme.TextOnDark;
         this.lblHeader.Location  = new Point(20, 15);
         this.lblHeader.Name      = "lblHeader";
         this.lblHeader.Text      = "✂  Customer";
@@ -155,7 +155,7 @@ partial class CustomerForm
         this.btnSave.BackColor = Theme.DarkGold;
         this.btnSave.FlatStyle = FlatStyle.Flat;
         this.btnSave.Font      = new Font("Segoe UI", 10f, FontStyle.Bold);
-        this.btnSave.ForeColor = Theme.DarkGrey;
+        this.btnSave.ForeColor = Theme.TextOnGold;
         this.btnSave.Location  = new Point(16, 11);
         this.btnSave.Name      = "btnSave";
         this.btnSave.Size      = new Size(155, 34);

@@ -7,6 +7,7 @@ public class WhatsAppHealth
 {
     public string Status { get; set; } = "unreachable";
     public string? Qr    { get; set; }
+    public string? Error { get; set; }
 }
 
 public class WhatsAppClient
@@ -18,7 +19,7 @@ public class WhatsAppClient
         _http = new HttpClient
         {
             BaseAddress = new Uri($"http://127.0.0.1:{port}/"),
-            Timeout     = TimeSpan.FromSeconds(5)
+            Timeout     = Timeout.InfiniteTimeSpan
         };
     }
 
@@ -26,13 +27,15 @@ public class WhatsAppClient
     {
         try
         {
-            var json = _http.GetStringAsync("health").GetAwaiter().GetResult();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var json = _http.GetStringAsync("health", cts.Token).GetAwaiter().GetResult();
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
             return new WhatsAppHealth
             {
                 Status = root.TryGetProperty("status", out var s) ? s.GetString() ?? "unreachable" : "unreachable",
-                Qr     = root.TryGetProperty("qr", out var q) && q.ValueKind == JsonValueKind.String ? q.GetString() : null
+                Qr     = root.TryGetProperty("qr", out var q) && q.ValueKind == JsonValueKind.String ? q.GetString() : null,
+                Error  = root.TryGetProperty("error", out var er) && er.ValueKind == JsonValueKind.String ? er.GetString() : null
             };
         }
         catch
@@ -47,7 +50,8 @@ public class WhatsAppClient
         {
             var payload = JsonSerializer.Serialize(new { phone, message });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-            var resp = _http.PostAsync("send", content).GetAwaiter().GetResult();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+            var resp = _http.PostAsync("send", content, cts.Token).GetAwaiter().GetResult();
             var body = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;

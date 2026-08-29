@@ -2,13 +2,16 @@ namespace TailorShop;
 
 public class Customer
 {
-    public long    Id        { get; set; }
-    public string  Name      { get; set; } = "";
-    public string? Phone     { get; set; }
-    public string? Address   { get; set; }
-    public string? Notes     { get; set; }
-    public string? CreatedAt { get; set; }
-    public string? UpdatedAt { get; set; }
+    public long    Id                { get; set; }
+    public string  Name              { get; set; } = "";
+    public string? Phone             { get; set; }
+    public string? Address           { get; set; }
+    public string? Notes             { get; set; }
+    public string? CreatedAt         { get; set; }
+    public string? UpdatedAt         { get; set; }
+    public long?   LatestOrderId        { get; set; }
+    public string? LatestOrderStatus    { get; set; }
+    public string? LatestOrderCreatedAt { get; set; }
 
     public override string ToString() => Name;
 }

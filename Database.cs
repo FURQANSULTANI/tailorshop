@@ -79,6 +79,20 @@ public class Database
                 ReadyAt     TEXT,
                 DeliveredAt TEXT,
                 FOREIGN KEY(CustomerId) REFERENCES Customers(Id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS WhatsAppQueue (
+                Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                OrderId      INTEGER NOT NULL,
+                CustomerId   INTEGER NOT NULL,
+                Phone        TEXT NOT NULL,
+                Message      TEXT NOT NULL,
+                Status       TEXT NOT NULL DEFAULT 'Pending',
+                AttemptCount INTEGER NOT NULL DEFAULT 0,
+                LastError    TEXT,
+                CreatedAt    TEXT DEFAULT (datetime('now','localtime')),
+                UpdatedAt    TEXT DEFAULT (datetime('now','localtime')),
+                SentAt       TEXT,
+                FOREIGN KEY(OrderId) REFERENCES Orders(Id) ON DELETE CASCADE
             );";
         ordersCmd.ExecuteNonQuery();
 
@@ -110,6 +124,41 @@ public class Database
         renameCustomerPay.ExecuteNonQuery();
     }
 
+    private const string LatestOrderColumns = @"
+        (SELECT o.Id FROM Orders o WHERE o.CustomerId = Customers.Id ORDER BY o.Id DESC LIMIT 1) AS LatestOrderId,
+        (SELECT o.Status FROM Orders o WHERE o.CustomerId = Customers.Id ORDER BY o.Id DESC LIMIT 1) AS LatestOrderStatus,
+        (SELECT o.CreatedAt FROM Orders o WHERE o.CustomerId = Customers.Id ORDER BY o.Id DESC LIMIT 1) AS LatestOrderCreatedAt";
+
+    public static Dictionary<long, List<Measurement>> GetSectionMeasurementsByOrder(List<long> orderIds, string section)
+    {
+        var result = new Dictionary<long, List<Measurement>>();
+        if (orderIds.Count == 0) return result;
+
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"SELECT OrderId,Section,FieldName,Value,SelectedOptions,Quantity
+            FROM Measurements WHERE Section=$sec AND OrderId IN ({string.Join(",", orderIds)})
+            ORDER BY SortOrder";
+        cmd.Parameters.AddWithValue("$sec", section);
+
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            var oid = Convert.ToInt64(r["OrderId"]);
+            if (!result.TryGetValue(oid, out var list)) result[oid] = list = new List<Measurement>();
+            list.Add(new Measurement
+            {
+                Section         = r["Section"].ToString()!,
+                FieldName       = r["FieldName"].ToString()!,
+                Value           = r["Value"] == DBNull.Value ? null : r["Value"].ToString(),
+                SelectedOptions = r["SelectedOptions"] == DBNull.Value ? null : r["SelectedOptions"].ToString(),
+                Quantity        = r["Quantity"] == DBNull.Value ? null : r["Quantity"].ToString()
+            });
+        }
+        return result;
+    }
+
     public static List<Customer> GetAllCustomers(string search = "")
     {
         var list = new List<Customer>();
@@ -117,10 +166,11 @@ public class Database
         conn.Open();
         var cmd = conn.CreateCommand();
         if (string.IsNullOrWhiteSpace(search))
-            cmd.CommandText = "SELECT * FROM Customers ORDER BY Name";
+            cmd.CommandText = $"SELECT Customers.*, {LatestOrderColumns} FROM Customers ORDER BY Name";
         else
         {
-            cmd.CommandText = "SELECT * FROM Customers WHERE Name LIKE $s OR Phone LIKE $s ORDER BY Name";
+            cmd.CommandText = $@"SELECT Customers.*, {LatestOrderColumns} FROM Customers
+                WHERE Name LIKE $s OR Phone LIKE $s ORDER BY Name";
             cmd.Parameters.AddWithValue("$s", $"%{search}%");
         }
         using var r = cmd.ExecuteReader();
@@ -133,7 +183,7 @@ public class Database
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT * FROM Customers WHERE Id=$id";
+        cmd.CommandText = $"SELECT Customers.*, {LatestOrderColumns} FROM Customers WHERE Id=$id";
         cmd.Parameters.AddWithValue("$id", id);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return null;
@@ -303,6 +353,114 @@ public class Database
         catch { tx.Rollback(); throw; }
     }
 
+    public static void UpdateOrderStatus(long orderId, string status)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = status switch
+        {
+            OrderStatus.Ready => @"UPDATE Orders SET Status=$status, ReadyAt=datetime('now','localtime'),
+                UpdatedAt=datetime('now','localtime') WHERE Id=$id",
+            OrderStatus.Delivered => @"UPDATE Orders SET Status=$status, DeliveredAt=datetime('now','localtime'),
+                UpdatedAt=datetime('now','localtime') WHERE Id=$id",
+            _ => "UPDATE Orders SET Status=$status, UpdatedAt=datetime('now','localtime') WHERE Id=$id"
+        };
+        cmd.Parameters.AddWithValue("$id", orderId);
+        cmd.Parameters.AddWithValue("$status", status);
+        cmd.ExecuteNonQuery();
+    }
+
+    public const int MaxRetryAttempts = 5;
+
+    public static long EnqueueWhatsAppMessage(long orderId, long customerId, string phone, string message)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+
+        var existing = conn.CreateCommand();
+        existing.CommandText = @"SELECT Id FROM WhatsAppQueue
+            WHERE Status=$status AND Phone=$phone AND Message=$msg ORDER BY Id ASC LIMIT 1";
+        existing.Parameters.AddWithValue("$status", WhatsAppStatus.Pending);
+        existing.Parameters.AddWithValue("$phone", phone);
+        existing.Parameters.AddWithValue("$msg", message);
+        var found = existing.ExecuteScalar();
+        if (found != null && found != DBNull.Value) return Convert.ToInt64(found);
+
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = @"INSERT INTO WhatsAppQueue(OrderId,CustomerId,Phone,Message)
+            VALUES($oid,$cid,$phone,$msg); SELECT last_insert_rowid();";
+        cmd.Parameters.AddWithValue("$oid", orderId);
+        cmd.Parameters.AddWithValue("$cid", customerId);
+        cmd.Parameters.AddWithValue("$phone", phone);
+        cmd.Parameters.AddWithValue("$msg", message);
+        return Convert.ToInt64(cmd.ExecuteScalar());
+    }
+
+    public static void MarkWhatsAppSent(long id)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = @"UPDATE WhatsAppQueue SET Status=$status, AttemptCount=AttemptCount+1,
+            SentAt=datetime('now','localtime'), UpdatedAt=datetime('now','localtime'), LastError=NULL
+            WHERE Id=$id
+               OR (Status=$pending AND Phone=(SELECT Phone FROM WhatsAppQueue WHERE Id=$id)
+                                   AND Message=(SELECT Message FROM WhatsAppQueue WHERE Id=$id))";
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.Parameters.AddWithValue("$status", WhatsAppStatus.Sent);
+        cmd.Parameters.AddWithValue("$pending", WhatsAppStatus.Pending);
+        cmd.ExecuteNonQuery();
+    }
+
+    public static void MarkWhatsAppAttemptFailed(long id, string error)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = @"UPDATE WhatsAppQueue SET
+            AttemptCount = AttemptCount + 1,
+            Status = CASE WHEN AttemptCount + 1 >= $max THEN $failed ELSE $pending END,
+            LastError = $error,
+            UpdatedAt = datetime('now','localtime')
+            WHERE Id=$id";
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.Parameters.AddWithValue("$max", MaxRetryAttempts);
+        cmd.Parameters.AddWithValue("$failed", WhatsAppStatus.Failed);
+        cmd.Parameters.AddWithValue("$pending", WhatsAppStatus.Pending);
+        cmd.Parameters.AddWithValue("$error", error);
+        cmd.ExecuteNonQuery();
+    }
+
+    public static List<WhatsAppQueueEntry> GetPendingWhatsAppMessages()
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = @"SELECT * FROM WhatsAppQueue
+            WHERE Status=$status AND Id IN (
+                SELECT MIN(Id) FROM WhatsAppQueue WHERE Status=$status GROUP BY Phone, Message)";
+        cmd.Parameters.AddWithValue("$status", WhatsAppStatus.Pending);
+        using var r = cmd.ExecuteReader();
+        var list = new List<WhatsAppQueueEntry>();
+        while (r.Read())
+            list.Add(new WhatsAppQueueEntry
+            {
+                Id           = Convert.ToInt64(r["Id"]),
+                OrderId      = Convert.ToInt64(r["OrderId"]),
+                CustomerId   = Convert.ToInt64(r["CustomerId"]),
+                Phone        = r["Phone"].ToString()!,
+                Message      = r["Message"].ToString()!,
+                Status       = r["Status"].ToString()!,
+                AttemptCount = Convert.ToInt32(r["AttemptCount"]),
+                LastError    = r["LastError"] == DBNull.Value ? null : r["LastError"].ToString(),
+                CreatedAt    = r["CreatedAt"]?.ToString(),
+                UpdatedAt    = r["UpdatedAt"]?.ToString(),
+                SentAt       = r["SentAt"] == DBNull.Value ? null : r["SentAt"].ToString()
+            });
+        return list;
+    }
+
     private static Order MapOrder(SqliteDataReader r) => new()
     {
         Id          = Convert.ToInt64(r["Id"]),
@@ -357,12 +515,15 @@ public class Database
 
     private static Customer MapCustomer(SqliteDataReader r) => new()
     {
-        Id        = Convert.ToInt64(r["Id"]),
-        Name      = r["Name"].ToString()!,
-        Phone     = r["Phone"]    == DBNull.Value ? null : r["Phone"].ToString(),
-        Address   = r["Address"]  == DBNull.Value ? null : r["Address"].ToString(),
-        Notes     = r["Notes"]    == DBNull.Value ? null : r["Notes"].ToString(),
-        CreatedAt = r["CreatedAt"]?.ToString(),
-        UpdatedAt = r["UpdatedAt"]?.ToString(),
+        Id                = Convert.ToInt64(r["Id"]),
+        Name              = r["Name"].ToString()!,
+        Phone             = r["Phone"]    == DBNull.Value ? null : r["Phone"].ToString(),
+        Address           = r["Address"]  == DBNull.Value ? null : r["Address"].ToString(),
+        Notes             = r["Notes"]    == DBNull.Value ? null : r["Notes"].ToString(),
+        CreatedAt         = r["CreatedAt"]?.ToString(),
+        UpdatedAt         = r["UpdatedAt"]?.ToString(),
+        LatestOrderId     = r["LatestOrderId"] == DBNull.Value ? null : Convert.ToInt64(r["LatestOrderId"]),
+        LatestOrderStatus = r["LatestOrderStatus"] == DBNull.Value ? null : r["LatestOrderStatus"].ToString(),
+        LatestOrderCreatedAt = r["LatestOrderCreatedAt"] == DBNull.Value ? null : r["LatestOrderCreatedAt"].ToString(),
     };
 }

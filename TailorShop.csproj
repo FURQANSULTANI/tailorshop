@@ -13,4 +13,16 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);WhatsAppService\node_modules\**;WhatsAppService\.wwebjs_auth\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="WhatsAppService\*.js" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="WhatsAppService\package.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="templates\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="WhatsAppConfig.env" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

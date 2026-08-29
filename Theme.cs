@@ -4,15 +4,24 @@ namespace TailorShop;
 
 public static class Theme
 {
-    // The only 3 colors used anywhere in the UI.
-    public static readonly Color DarkGrey   = Color.FromArgb(55, 55, 57);    // #373739 — 55%, primary surfaces
-    public static readonly Color NormalGrey = Color.FromArgb(208, 208, 206); // #D0D0CE — 30%, secondary surfaces
-    public static readonly Color DarkGold   = Color.FromArgb(176, 141, 66);  // #B08D42 — 15%, accent only
+    public static readonly Color DarkGrey   = Color.FromArgb(0x1F, 0x7A, 0x6C);
+    public static readonly Color NormalGrey = Color.FromArgb(0xFB, 0xF7, 0xF0);
+    public static readonly Color DarkGold   = Color.FromArgb(0x14, 0xA3, 0xC7);
+    public static readonly Color DeleteAccent = Color.FromArgb(0x59, 0x87, 0x80);
+    public static readonly Color RowAlt = Color.FromArgb(0x14, 0xA3, 0xC7);
+    public static readonly Color TextOnRowAlt = Color.White;
 
-    // Text colors — always one of the 3 palette colors, never white or black.
-    public static readonly Color TextOnDark   = NormalGrey;
-    public static readonly Color TextOnNormal = DarkGrey;
-    public static readonly Color TextOnGold   = DarkGrey;
+    public static readonly Color TextInk = Color.FromArgb(0x2B, 0x2B, 0x2B);
+    public static readonly Color TextOnWhite = Color.White;
+
+    public static readonly Color TextOnDark   = TextOnWhite;
+    public static readonly Color TextOnNormal = TextInk;
+    public static readonly Color TextOnGold   = TextOnWhite;
+    public static readonly Color TextOnDeleteAccent = TextOnWhite;
+
+    public static readonly Color AlertRed    = Color.FromArgb(253, 28, 3);
+    public static readonly Color AlertOrange = Color.FromArgb(248, 128, 23);
+    public static readonly Color TextOnAlert = Color.White;
 
     // "Urdu Typesetting" ships with Windows (complex-script/Arabic support since Vista) and
     // renders proper Nastaliq-style joined letterforms. If it's ever missing on a machine,
@@ -26,8 +35,77 @@ public static class Theme
 
     public static Color Hover(Color baseColor) =>
         baseColor.GetBrightness() > 0.5f
-            ? ControlPaint.Dark(baseColor, 0.1f)
+            ? DeleteAccent
             : ControlPaint.Light(baseColor, 0.25f);
+
+    public static Bitmap ToWhiteSilhouette(Image source)
+    {
+        var bmp = new Bitmap(source.Width, source.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (var g = Graphics.FromImage(bmp)) g.DrawImage(source, 0, 0, source.Width, source.Height);
+
+        for (int y = 0; y < bmp.Height; y++)
+            for (int x = 0; x < bmp.Width; x++)
+            {
+                var p = bmp.GetPixel(x, y);
+                var luma = (int)(0.299 * p.R + 0.587 * p.G + 0.114 * p.B);
+                var alpha = Math.Clamp((luma - 24) * 255 / 200, 0, 255);
+                bmp.SetPixel(x, y, Color.FromArgb(alpha, 255, 255, 255));
+            }
+
+        return bmp;
+    }
+
+    public static Bitmap TrimUniformMargins(Image source, int tolerance = 20)
+    {
+        using var bmp = new Bitmap(source);
+        var bg = bmp.GetPixel(0, 0);
+        int minX = bmp.Width, minY = bmp.Height, maxX = -1, maxY = -1;
+
+        for (int y = 0; y < bmp.Height; y++)
+            for (int x = 0; x < bmp.Width; x++)
+            {
+                var p = bmp.GetPixel(x, y);
+                if (Math.Abs(p.R - bg.R) <= tolerance &&
+                    Math.Abs(p.G - bg.G) <= tolerance &&
+                    Math.Abs(p.B - bg.B) <= tolerance) continue;
+                if (x < minX) minX = x;
+                if (y < minY) minY = y;
+                if (x > maxX) maxX = x;
+                if (y > maxY) maxY = y;
+            }
+
+        if (maxX < 0) return new Bitmap(source);
+
+        var rect = new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
+        var cropped = new Bitmap(rect.Width, rect.Height);
+        using var g = Graphics.FromImage(cropped);
+        g.DrawImage(bmp, new Rectangle(0, 0, rect.Width, rect.Height), rect, GraphicsUnit.Pixel);
+        return cropped;
+    }
+
+    public static void PaintFieldBorders(Control container, params Control[] fields)
+    {
+        foreach (var f in fields)
+            if (f is TextBox tb) tb.BorderStyle = BorderStyle.None;
+
+        container.Paint += (_, e) =>
+        {
+            using var pen = new Pen(DarkGold, 1f);
+            foreach (var f in fields)
+            {
+                if (f.Parent != container) continue;
+                e.Graphics.DrawRectangle(pen, f.Left - 2, f.Top - 2, f.Width + 3, f.Height + 3);
+            }
+        };
+    }
+
+    public static void ApplyLightHover(Button btn)
+    {
+        var restFore = btn.ForeColor;
+        btn.FlatAppearance.MouseOverBackColor = DeleteAccent;
+        btn.MouseEnter += (_, _) => btn.ForeColor = TextOnWhite;
+        btn.MouseLeave += (_, _) => btn.ForeColor = restFore;
+    }
 
     // A barely-there tint of the same palette color — not a new hue, just enough
     // to separate alternating rows without breaking the 3-color rule.
@@ -60,4 +138,30 @@ public static class Theme
         Width     = thickness,
         BackColor = DarkGold
     };
+
+    // A simple chat-bubble glyph drawn in the palette color, instead of a WhatsApp
+    // emoji/logo — emoji render as fixed multi-color glyphs regardless of the
+    // control's ForeColor, breaking the 3-color rule.
+    public static Bitmap CreateChatBubbleIcon(Color color, int size = 16)
+    {
+        var bmp = new Bitmap(size, size);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        float pad = size * 0.12f;
+        var bubble = new RectangleF(pad, pad, size - 2 * pad, size - 2 * pad - size * 0.16f);
+        using var pen = new Pen(color, Math.Max(1f, size / 8f));
+        g.DrawEllipse(pen, bubble);
+
+        var tail = new[]
+        {
+            new PointF(bubble.Left + bubble.Width * 0.28f, bubble.Bottom - size * 0.03f),
+            new PointF(bubble.Left + bubble.Width * 0.16f, bubble.Bottom + size * 0.18f),
+            new PointF(bubble.Left + bubble.Width * 0.46f, bubble.Bottom - size * 0.06f)
+        };
+        using var brush = new SolidBrush(color);
+        g.FillPolygon(brush, tail);
+
+        return bmp;
+    }
 }

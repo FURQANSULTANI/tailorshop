@@ -23,13 +23,16 @@ partial class MainForm
         btnAdd = new Button();
         btnEdit = new Button();
         btnDelete = new Button();
+        btnRelinkWhatsApp = new Button();
         lblStatus = new Label();
         grid = new DataGridView();
         colId = new DataGridViewTextBoxColumn();
         colName = new DataGridViewTextBoxColumn();
         colPhone = new DataGridViewTextBoxColumn();
-        colAddress = new DataGridViewTextBoxColumn();
         colDate = new DataGridViewTextBoxColumn();
+        colOrderStatus = new DataGridViewTextBoxColumn();
+        colRemaining = new DataGridViewTextBoxColumn();
+        colMarkReady = new DataGridViewButtonColumn();
         panelHeader.SuspendLayout();
         panelSearch.SuspendLayout();
         panelBottom.SuspendLayout();
@@ -51,7 +54,7 @@ partial class MainForm
         //
         lblTitle.AutoSize = true;
         lblTitle.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
-        lblTitle.ForeColor = Theme.DarkGold;
+        lblTitle.ForeColor = Theme.TextOnDark;
         lblTitle.Location = new Point(20, 15);
         lblTitle.Name = "lblTitle";
         lblTitle.TabIndex = 0;
@@ -75,6 +78,7 @@ partial class MainForm
         panelSearch.Controls.Add(txtSearch);
         panelSearch.Controls.Add(btnSearch);
         panelSearch.Controls.Add(btnClear);
+        panelSearch.Controls.Add(btnRelinkWhatsApp);
         panelSearch.Dock = DockStyle.Top;
         panelSearch.Location = new Point(0, 80);
         panelSearch.Name = "panelSearch";
@@ -105,18 +109,20 @@ partial class MainForm
         //
         // btnSearch
         //
-        btnSearch.BackColor = Theme.DarkGold;
+        btnSearch.BackColor = Theme.NormalGrey;
         btnSearch.Cursor = Cursors.Hand;
         btnSearch.FlatStyle = FlatStyle.Flat;
         btnSearch.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        btnSearch.ForeColor = Theme.DarkGrey;
+        btnSearch.ForeColor = Theme.TextOnNormal;
         btnSearch.Location = new Point(420, 13);
         btnSearch.Name = "btnSearch";
         btnSearch.Size = new Size(90, 32);
         btnSearch.TabIndex = 1;
         btnSearch.Text = "Search";
         btnSearch.UseVisualStyleBackColor = false;
-        btnSearch.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+        btnSearch.FlatAppearance.BorderSize = 2;
+        btnSearch.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnSearch.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
         //
         // btnClear
         //
@@ -131,10 +137,33 @@ partial class MainForm
         btnClear.TabIndex = 2;
         btnClear.Text = "Clear";
         btnClear.UseVisualStyleBackColor = false;
+        btnClear.FlatAppearance.BorderSize = 2;
+        btnClear.FlatAppearance.BorderColor = Theme.DarkGold;
         btnClear.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
-        // 
+        //
+        // btnRelinkWhatsApp
+        //
+        btnRelinkWhatsApp.BackColor = Theme.DarkGrey;
+        btnRelinkWhatsApp.Cursor = Cursors.Hand;
+        btnRelinkWhatsApp.FlatStyle = FlatStyle.Flat;
+        btnRelinkWhatsApp.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        btnRelinkWhatsApp.ForeColor = Theme.TextOnDark;
+        btnRelinkWhatsApp.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnRelinkWhatsApp.Location = new Point(750, 13);
+        btnRelinkWhatsApp.Name = "btnRelinkWhatsApp";
+        btnRelinkWhatsApp.Size = new Size(190, 32);
+        btnRelinkWhatsApp.TabIndex = 3;
+        btnRelinkWhatsApp.Text = "  Re-link WhatsApp";
+        btnRelinkWhatsApp.TextAlign = ContentAlignment.MiddleCenter;
+        btnRelinkWhatsApp.TextImageRelation = TextImageRelation.ImageBeforeText;
+        btnRelinkWhatsApp.Image = Theme.CreateChatBubbleIcon(Theme.TextOnDark, 18);
+        btnRelinkWhatsApp.UseVisualStyleBackColor = false;
+        btnRelinkWhatsApp.FlatAppearance.BorderSize = 2;
+        btnRelinkWhatsApp.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnRelinkWhatsApp.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
+        //
         // panelBottom
-        // 
+        //
         panelBottom.BackColor = Theme.DarkGrey;
         panelBottom.Controls.Add(btnAdd);
         panelBottom.Controls.Add(btnEdit);
@@ -148,18 +177,20 @@ partial class MainForm
         // 
         // btnAdd
         // 
-        btnAdd.BackColor = Theme.DarkGold;
+        btnAdd.BackColor = Theme.NormalGrey;
         btnAdd.Cursor = Cursors.Hand;
         btnAdd.FlatStyle = FlatStyle.Flat;
         btnAdd.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        btnAdd.ForeColor = Theme.DarkGrey;
+        btnAdd.ForeColor = Theme.TextOnNormal;
         btnAdd.Location = new Point(14, 12);
         btnAdd.Name = "btnAdd";
         btnAdd.Size = new Size(155, 33);
         btnAdd.TabIndex = 0;
         btnAdd.Text = "New Customer";
         btnAdd.UseVisualStyleBackColor = false;
-        btnAdd.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+        btnAdd.FlatAppearance.BorderSize = 2;
+        btnAdd.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnAdd.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
         //
         // btnEdit
         //
@@ -174,15 +205,17 @@ partial class MainForm
         btnEdit.TabIndex = 1;
         btnEdit.Text = "Edit";
         btnEdit.UseVisualStyleBackColor = false;
+        btnEdit.FlatAppearance.BorderSize = 2;
+        btnEdit.FlatAppearance.BorderColor = Theme.DarkGold;
         btnEdit.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
         //
         // btnDelete
         //
-        btnDelete.BackColor = Theme.DarkGrey;
+        btnDelete.BackColor = Theme.DeleteAccent;
         btnDelete.Cursor = Cursors.Hand;
         btnDelete.FlatStyle = FlatStyle.Flat;
         btnDelete.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        btnDelete.ForeColor = Theme.TextOnDark;
+        btnDelete.ForeColor = Theme.TextOnDeleteAccent;
         btnDelete.Location = new Point(278, 12);
         btnDelete.Name = "btnDelete";
         btnDelete.Size = new Size(92, 33);
@@ -191,10 +224,10 @@ partial class MainForm
         btnDelete.UseVisualStyleBackColor = false;
         btnDelete.FlatAppearance.BorderSize = 2;
         btnDelete.FlatAppearance.BorderColor = Theme.DarkGold;
-        btnDelete.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
-        // 
+        btnDelete.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DeleteAccent);
+        //
         // lblStatus
-        // 
+        //
         lblStatus.AutoSize = true;
         lblStatus.Font = new Font("Segoe UI", 9.5F);
         lblStatus.ForeColor = Theme.TextOnDark;
@@ -212,7 +245,7 @@ partial class MainForm
         grid.BackgroundColor = Theme.NormalGrey;
         grid.BorderStyle = BorderStyle.None;
         grid.ColumnHeadersHeight = 42;
-        grid.Columns.AddRange(new DataGridViewColumn[] { colId, colName, colPhone, colAddress, colDate });
+        grid.Columns.AddRange(new DataGridViewColumn[] { colId, colName, colPhone, colDate, colOrderStatus, colRemaining, colMarkReady });
         grid.Dock = DockStyle.Fill;
         grid.Location = new Point(0, 138);
         grid.MultiSelect = false;
@@ -249,15 +282,7 @@ partial class MainForm
         colPhone.MinimumWidth = 6;
         colPhone.Name = "colPhone";
         colPhone.ReadOnly = true;
-        // 
-        // colAddress
-        // 
-        colAddress.FillWeight = 30F;
-        colAddress.HeaderText = "Address";
-        colAddress.MinimumWidth = 6;
-        colAddress.Name = "colAddress";
-        colAddress.ReadOnly = true;
-        // 
+        //
         // colDate
         // 
         colDate.FillWeight = 15F;
@@ -265,7 +290,36 @@ partial class MainForm
         colDate.MinimumWidth = 6;
         colDate.Name = "colDate";
         colDate.ReadOnly = true;
-        // 
+        //
+        // colOrderStatus
+        //
+        colOrderStatus.FillWeight = 15F;
+        colOrderStatus.HeaderText = "Order";
+        colOrderStatus.MinimumWidth = 6;
+        colOrderStatus.Name = "colOrderStatus";
+        colOrderStatus.ReadOnly = true;
+        colOrderStatus.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        //
+        // colRemaining
+        //
+        colRemaining.FillWeight = 18F;
+        colRemaining.HeaderText = "Remaining (Rs)";
+        colRemaining.MinimumWidth = 6;
+        colRemaining.Name = "colRemaining";
+        colRemaining.ReadOnly = true;
+        colRemaining.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        //
+        // colMarkReady
+        //
+        colMarkReady.FillWeight = 16F;
+        colMarkReady.HeaderText = "";
+        colMarkReady.MinimumWidth = 6;
+        colMarkReady.Name = "colMarkReady";
+        colMarkReady.ReadOnly = true;
+        colMarkReady.UseColumnTextForButtonValue = false;
+        colMarkReady.FlatStyle = FlatStyle.Flat;
+        colMarkReady.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+        //
         // MainForm
         // 
         AutoScaleDimensions = new SizeF(9F, 21F);
@@ -280,6 +334,7 @@ partial class MainForm
         MinimumSize = new Size(800, 500);
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
+        WindowState = FormWindowState.Maximized;
         Text = "TailorShop — Customer Management";
         panelHeader.ResumeLayout(false);
         panelHeader.PerformLayout();
@@ -304,11 +359,14 @@ partial class MainForm
     private Button   btnAdd       = null!;
     private Button   btnEdit      = null!;
     private Button   btnDelete    = null!;
+    private Button   btnRelinkWhatsApp = null!;
     private Label    lblStatus    = null!;
     private DataGridView grid     = null!;
     private DataGridViewTextBoxColumn colId      = null!;
     private DataGridViewTextBoxColumn colName    = null!;
     private DataGridViewTextBoxColumn colPhone   = null!;
-    private DataGridViewTextBoxColumn colAddress = null!;
     private DataGridViewTextBoxColumn colDate    = null!;
+    private DataGridViewTextBoxColumn colOrderStatus = null!;
+    private DataGridViewTextBoxColumn colRemaining  = null!;
+    private DataGridViewButtonColumn colMarkReady = null!;
 }
