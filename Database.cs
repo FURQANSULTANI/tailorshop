@@ -118,10 +118,14 @@ public class Database
             WHERE OrderId IS NULL";
         backfillMeasurements.ExecuteNonQuery();
 
-        var renameCustomerPay = conn.CreateCommand();
-        renameCustomerPay.CommandText =
-            "UPDATE Measurements SET FieldName = 'ادا شدہ رقم' WHERE FieldName = 'کسٹمر پے'";
-        renameCustomerPay.ExecuteNonQuery();
+        var renameFields = conn.CreateCommand();
+        renameFields.CommandText = @"
+            UPDATE Measurements SET FieldName = 'Paid Amount'      WHERE FieldName IN ('کسٹمر پے', 'ادا شدہ رقم');
+            UPDATE Measurements SET FieldName = 'Advance'          WHERE FieldName = 'ایڈوانس';
+            UPDATE Measurements SET FieldName = 'Previous Balance' WHERE FieldName = 'سابقہ رقم';
+            UPDATE Measurements SET FieldName = 'Suit Stitching'   WHERE FieldName = 'سوٹ سلائی'   AND Section = 'Point Of Sale';
+            UPDATE Measurements SET FieldName = 'Suit Purchase'    WHERE FieldName = 'سوٹ خریداری' AND Section = 'Point Of Sale';";
+        renameFields.ExecuteNonQuery();
     }
 
     private const string LatestOrderColumns = @"
@@ -475,41 +479,29 @@ public class Database
     // Default fields shown when creating a new customer
     public static readonly Dictionary<string, List<FieldDef>> DefaultFields = new()
     {
-        ["Shirt"]          = new() { "چھاتی", "کندھا", "لمبائی", "بازو", "گلا" },
+        ["Shirt"]          = new() { "Chest", "Shoulder", "Length", "Arm", "Neck" },
         ["Shalwar Kameez"] = new()
         {
-            // Plain length fields (Input Field column was empty = shown; no checkboxes)
-            "قمیض لمبائی", "بازو", "تیرہ", "چھاتی", "نوک", "کمر", "گھیرہ", "گلا", "کف", "بازو موڈا", "پٹی",
+            "Kameez Length", "Arm", "Shoulder", "Neck", "Chest", "Waist", "Belly",
+            "Width (Tayari)", "Chest (Tayari)", "Waist (Tayari)", "Arm Hole",
+            "Shalwar / Trouser Length", "Bottom", "Width (Ghera)", "Crotch Seam (Aasan)", "Hip",
 
-            // Reference/design number fields
-            new FieldDef { Name = "سوٹ ڈیزائن", Kind = FieldKind.Text, ValuePlaceholder = "Ref..." },
-            new FieldDef { Name = "کڑھائی",     Kind = FieldKind.Text, ValuePlaceholder = "Ref..." },
-
-            // Length + style options together (Input Field + CheckBoxes both shown)
-            new FieldDef { Name = "کالر",        Kind = FieldKind.Both, Options = new[] { "سادہ", "گول نوک" } },
-            new FieldDef { Name = "بین",         Kind = FieldKind.Both, Options = new[] { "سادہ", "گول نوک" } },
-            new FieldDef { Name = "فرنٹ پاکٹ",   Kind = FieldKind.Both, Options = new[] { "سادہ", "ڈیزائن" } },
-            new FieldDef { Name = "سائیڈ پاکٹ",  Kind = FieldKind.Both, Options = new[] { "ڈبل", "سنگل" } },
-            new FieldDef { Name = "سلائی",       Kind = FieldKind.Both, Options = new[] { "سنگل", "ڈبل", "ٹربل" } },
-            new FieldDef { Name = "سوٹ سلائی",   Kind = FieldKind.Both, Options = new[] { "سادہ", "ڈیزائن" } },
-            new FieldDef { Name = "کف ڈیزائن",   Kind = FieldKind.Both, Options = new[] { "سنگل", "ڈبل", "گول", "چورس کٹ" } },
-            new FieldDef { Name = "بازو پلیٹ",   Kind = FieldKind.Both, Options = new[] { "سنگل", "ڈبل", "بغیر پلیٹ" } },
-            new FieldDef { Name = "تیرہ ڈیزائن", Kind = FieldKind.Both, Options = new[] { "نوک" } },
-            new FieldDef { Name = "بٹن",         Kind = FieldKind.Both, Options = new[] { "سادہ", "فینسی", "میٹل" } },
-            new FieldDef { Name = "شلوار ڈیزائن",  Kind = FieldKind.Both, Options = new[] { "سادہ", "گڈی کاٹ", "پاجامہ" } },
-            new FieldDef { Name = "پائنچہ ڈیزائن", Kind = FieldKind.Both, Options = new[] { "جالی", "ہاتھ کانٹا", "کمپیوٹر کانٹا" } },
-            new FieldDef { Name = "شلوار پاکٹ",    Kind = FieldKind.Both, Options = new[] { "سائیڈ", "زپ" } },
-
-            // بازو شپ, بازو جوک, شلوار لمبائی, پائنچہ, شلوار گھیرہ, آسن, بپ — every column NA in the table, so skipped
+            new FieldDef { Name = "Collar",      Kind = FieldKind.Both, Options = new[] { "Sada", "Gol Nok" } },
+            new FieldDef { Name = "Bain",        Kind = FieldKind.Both, Options = new[] { "Sada", "Gol Nok" } },
+            new FieldDef { Name = "Front Pocket", Kind = FieldKind.Both, Options = new[] { "Sada", "Design" } },
+            new FieldDef { Name = "Cuff",        Kind = FieldKind.Both, Options = new[] { "Single", "Double", "Gol", "Chorus Cut" } },
+            "Front Patti",
+            new FieldDef { Name = "Side Pocket", Kind = FieldKind.Both, Options = new[] { "Double", "Single" } },
+            new FieldDef { Name = "Shalwar / Trouser Pocket", Kind = FieldKind.Both, Options = new[] { "Side", "Zip" } },
         },
-        ["Pant"]           = new() { "لمبائی", "کمر", "گھیرا", "ران", "گھٹنا", "پائنچہ" },
-        ["Coat / Sherwani"]= new() { "لمبائی", "چھاتی", "کندھا", "بازو" },
+        ["Pant"]           = new() { "Length", "Waist", "Ghera", "Thigh (Raan)", "Knee (Ghutna)", "Bottom (Paincha)" },
+        ["Coat / Sherwani"]= new() { "Length", "Chest", "Shoulder", "Arm" },
         ["Point Of Sale"]  = new()
         {
-            new FieldDef { Name = "سوٹ سلائی",   Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true, HasQuantity = true },
-            new FieldDef { Name = "سوٹ خریداری", Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true, HasQuantity = true },
-            new FieldDef { Name = "ایڈوانس",     Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true },
-            new FieldDef { Name = "سابقہ رقم",   Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true },
+            new FieldDef { Name = "Suit Stitching", Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true, HasQuantity = true },
+            new FieldDef { Name = "Suit Purchase",  Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true, HasQuantity = true },
+            new FieldDef { Name = "Advance",          Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true },
+            new FieldDef { Name = "Previous Balance", Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true },
         },
     };
 

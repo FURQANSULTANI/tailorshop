@@ -228,16 +228,18 @@ public partial class CustomerForm : Form
 
         int cursorX = 12;
 
+        bool isUrduName = def.Name.Any(ch => ch >= 0x0600 && ch <= 0x06FF);
+
         var txtField = new TextBox
         {
             Text            = def.Name,
             Tag             = "field",
             Location        = new Point(cursorX, 10),
             Width           = 190,
-            Font            = Theme.UrduFont,
+            Font            = isUrduName ? Theme.UrduFont : new Font("Segoe UI", 10f),
             ForeColor       = Theme.TextOnNormal,
-            RightToLeft     = RightToLeft.Yes,
-            TextAlign       = HorizontalAlignment.Right,
+            RightToLeft     = isUrduName ? RightToLeft.Yes : RightToLeft.No,
+            TextAlign       = isUrduName ? HorizontalAlignment.Right : HorizontalAlignment.Left,
             BorderStyle     = BorderStyle.FixedSingle,
             BackColor       = Theme.NormalGrey,
             PlaceholderText = "Field ka naam..."
@@ -325,6 +327,10 @@ public partial class CustomerForm : Form
         {
             foreach (var opt in def.Options)
             {
+                var optFont = opt.Any(ch => ch >= 0x0600 && ch <= 0x06FF)
+                    ? Theme.UrduFontSmall
+                    : new Font("Segoe UI", 9f, FontStyle.Bold);
+
                 var cb = new CheckBox
                 {
                     Text        = opt,
@@ -334,10 +340,10 @@ public partial class CustomerForm : Form
                     AutoSize    = false,
                     Height      = fieldHeight,
                     TextAlign   = ContentAlignment.MiddleCenter,
-                    Font        = Theme.UrduFontSmall,
+                    Font        = optFont,
                     Location    = new Point(cursorX, 11)
                 };
-                cb.Width = Math.Max(95, TextRenderer.MeasureText(opt, Theme.UrduFontSmall).Width + 52);
+                cb.Width = Math.Max(95, TextRenderer.MeasureText(opt, optFont).Width + 40);
                 cb.FlatAppearance.BorderSize = 1;
                 cb.FlatAppearance.BorderColor = Theme.DarkGrey;
                 cb.FlatAppearance.CheckedBackColor = Theme.DeleteAccent;
@@ -400,9 +406,9 @@ public partial class CustomerForm : Form
     public const string TotalRowTag        = "TotalRow";
     public const string CustomerPayRowTag  = "CustomerPayRow";
     public const string BaaqayaRowTag      = "BaaqayaRow";
-    public const string AdvanceFieldName   = "ایڈوانس";
-    public const string CustomerPayFieldName = "ادا شدہ رقم";
-    public const string RemainingFieldName   = "سابقہ رقم";
+    public const string AdvanceFieldName   = "Advance";
+    public const string CustomerPayFieldName = "Paid Amount";
+    public const string RemainingFieldName   = "Previous Balance";
 
     private static Panel BuildComputedRow(FlowLayoutPanel panel, string label, object rowTag, Color accent)
     {
@@ -464,10 +470,10 @@ public partial class CustomerForm : Form
     }
 
     private Panel BuildTotalRow(string section) =>
-        BuildComputedRow(_sectionPanels[section], "ٹوٹل بل", TotalRowTag, Theme.DarkGrey);
+        BuildComputedRow(_sectionPanels[section], "Total Bill", TotalRowTag, Theme.DarkGrey);
 
     private Panel BuildBaaqayaRow(string section) =>
-        BuildComputedRow(_sectionPanels[section], "باقی", BaaqayaRowTag, Theme.DarkGrey);
+        BuildComputedRow(_sectionPanels[section], "Remaining", BaaqayaRowTag, Theme.DarkGrey);
 
     private void RepositionPosSpecialRows(string section) => RepositionPosSpecialRowsCore(_sectionPanels[section]);
 
@@ -548,14 +554,14 @@ public partial class CustomerForm : Form
                 AddFieldRowCore(panel, f, "", Array.Empty<string>(), scrollIntoView: false, onChanged: onChanged, accent: accent);
         }
 
-        panel.Controls.Add(BuildComputedRow(panel, "ٹوٹل بل", TotalRowTag, accent));
+        panel.Controls.Add(BuildComputedRow(panel, "Total Bill", TotalRowTag, accent));
 
         var customerPayValue = existing.FirstOrDefault(m => m.FieldName == CustomerPayFieldName)?.Value ?? "";
         var customerPayDef   = new FieldDef { Name = CustomerPayFieldName, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true };
         AddFieldRowCore(panel, customerPayDef, customerPayValue, Array.Empty<string>(),
             scrollIntoView: false, onChanged: onChanged, removable: false, rowTag: CustomerPayRowTag);
 
-        panel.Controls.Add(BuildComputedRow(panel, "باقی", BaaqayaRowTag, accent));
+        panel.Controls.Add(BuildComputedRow(panel, "Remaining", BaaqayaRowTag, accent));
         RecalculatePosCore(panel);
     }
 

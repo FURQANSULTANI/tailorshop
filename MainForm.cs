@@ -214,9 +214,9 @@ public partial class MainForm : Form {
 
             if (r.Baaqaya > 0) {
                 var daysOld = (DateTime.Now.Date - r.OrderDate.Date).Days;
-                if (daysOld >= 2) 
+                if (daysOld >= 30) 
                     SetRowAlertColor(grid.Rows[idx], Theme.AlertRed);
-                else if (daysOld >= 1) 
+                else if (daysOld >= 15) 
                     SetRowAlertColor(grid.Rows[idx], Theme.AlertOrange);
             }
         }
