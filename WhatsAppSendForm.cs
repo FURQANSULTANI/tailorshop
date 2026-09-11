@@ -33,16 +33,17 @@ public class WhatsAppSendForm : Form
         var btnSend = new Button
         {
             Text      = "Send",
-            BackColor = Theme.DarkGold,
-            ForeColor = Theme.TextOnGold,
+            BackColor = Theme.DarkGrey,
+            ForeColor = Theme.TextOnDark,
             FlatStyle = FlatStyle.Flat,
             Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
             Size      = new Size(100, 32),
             Location  = new Point(16, 9),
             Cursor    = Cursors.Hand
         };
-        btnSend.FlatAppearance.BorderSize = 0;
-        btnSend.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+        btnSend.FlatAppearance.BorderSize  = 2;
+        btnSend.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnSend.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
         btnSend.Click += (_, _) => { DialogResult = DialogResult.OK; Close(); };
 
         var btnCancel = new Button
@@ -56,6 +57,8 @@ public class WhatsAppSendForm : Form
             Location  = new Point(126, 9),
             Cursor    = Cursors.Hand
         };
+        btnCancel.FlatAppearance.BorderSize  = 2;
+        btnCancel.FlatAppearance.BorderColor = Theme.DarkGold;
         Theme.ApplyLightHover(btnCancel);
         btnCancel.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
 

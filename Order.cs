@@ -21,8 +21,9 @@ public class Order
     public string  Status      { get; set; } = OrderStatus.Pending;
     public string? CreatedAt   { get; set; }
     public string? UpdatedAt   { get; set; }
-    public string? ReadyAt     { get; set; }
-    public string? DeliveredAt { get; set; }
+    public string? ReadyAt      { get; set; }
+    public string? DeliveredAt  { get; set; }
+    public string? DeliveryDate { get; set; }
 
     public List<Measurement> Measurements { get; set; } = new();
 

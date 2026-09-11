@@ -15,9 +15,11 @@ public partial class MainForm : Form {
         InitializeComponent();
         ApplyGridStyles();
         ApplyPolish();
+        BuildBackupButton();
         WireEvents();
         Database.Initialize();
         LoadCustomers();
+        Task.Run(Backup.RunIfDue);
 
         WhatsAppConfig.Load();
         _waClient = new WhatsAppClient(WhatsAppConfig.Port);
@@ -38,6 +40,38 @@ public partial class MainForm : Form {
 
         panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
         panelBottom.Controls.Add(Theme.AccentDivider(DockStyle.Top));
+    }
+
+    private void BuildBackupButton() {
+        var btnBackup = new Button {
+            Text      = "Backup & Restore",
+            BackColor = Theme.NormalGrey,
+            ForeColor = Theme.TextOnNormal,
+            FlatStyle = FlatStyle.Flat,
+            Font      = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Size      = new Size(175, 33),
+            Anchor    = AnchorStyles.Top | AnchorStyles.Right,
+            Location  = new Point(panelBottom.Width - 189, 12),
+            Cursor    = Cursors.Hand,
+            UseVisualStyleBackColor = false
+        };
+        btnBackup.FlatAppearance.BorderSize  = 2;
+        btnBackup.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnBackup.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
+        Theme.RoundCorners(btnBackup, 6);
+        btnBackup.Click += BtnBackup_Click;
+
+        panelBottom.Controls.Add(btnBackup);
+        btnBackup.BringToFront();
+    }
+
+    private void BtnBackup_Click(object? sender, EventArgs e) {
+        using var form = new BackupForm();
+        form.ShowDialog(this);
+        if (form.DataRestored) {
+            Database.Initialize();
+            LoadCustomers();
+        }
     }
 
     private void BuildHeaderBrand() {
@@ -207,8 +241,12 @@ public partial class MainForm : Form {
 
         grid.Rows.Clear();
         foreach (var r in rows) {
+            DateTime dlv;
+            bool dlvParsed;
             var idx = grid.Rows.Add(r.Customer.Id, r.Customer.Name, r.Customer.Phone ?? "-",
-                          r.Customer.CreatedAt?.Split(' ')[0] ?? "", r.Customer.LatestOrderStatus ?? "-",
+                          r.Customer.CreatedAt?.Split(' ')[0] ?? "",
+                          (dlvParsed = DateTime.TryParse(r.Customer.LatestOrderDeliveryDate, out dlv)) ? dlv.ToString("dd MMM yyyy") : "-",
+                          r.Customer.LatestOrderStatus ?? "-",
                           r.Baaqaya > 0 ? r.Baaqaya.ToString("N0") : "-",
                           MarkReadyButtonText(r.Customer.LatestOrderStatus));
 
@@ -219,9 +257,30 @@ public partial class MainForm : Form {
                 else if (daysOld >= 15) 
                     SetRowAlertColor(grid.Rows[idx], Theme.AlertOrange);
             }
+
+            ApplyDeliveryCellAlert(grid.Rows[idx], r.Customer.LatestOrderStatus, dlvParsed ? dlv : null);
         }
 
         lblStatus.Text = $"{_customers.Count} customer(s)";
+    }
+
+    private static void ApplyDeliveryCellAlert(DataGridViewRow row, string? status, DateTime? deliveryDate) {
+        if (deliveryDate == null) return;
+        if (status is OrderStatus.Ready or OrderStatus.Delivered) return;
+
+        var daysLeft = (deliveryDate.Value.Date - DateTime.Now.Date).Days;
+        if (daysLeft > 0) return;
+
+        var color = daysLeft < 0 ? Theme.AlertRed : Theme.AlertOrange;
+        var cell  = row.Cells["colDelivery"];
+        cell.Style.BackColor = color;
+        cell.Style.ForeColor = Theme.TextOnAlert;
+        cell.Style.Font = new Font(row.DataGridView!.Font, FontStyle.Bold);
+        cell.Style.SelectionBackColor = Theme.Hover(color);
+        cell.Style.SelectionForeColor = Theme.TextOnAlert;
+        cell.ToolTipText = daysLeft < 0
+            ? $"Delivery {Math.Abs(daysLeft)} day(s) overdue"
+            : "Delivery due today";
     }
 
     private static void SetRowAlertColor(DataGridViewRow row, Color color) {
@@ -332,7 +391,7 @@ public partial class MainForm : Form {
 
     private void BtnRelinkWhatsApp_Click(object? s, EventArgs e) {
         if (MessageBox.Show("WhatsApp session reset ho jayegi aur dobara QR code scan karna hoga. Continue?",
-            "TailorShop", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+            "Golden Tailor", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
 
         _qrDismissed = false;
         Task.Run(WhatsAppProcess.ResetSession);
@@ -417,7 +476,7 @@ public partial class MainForm : Form {
     }
 
     private static void Info(string msg) =>
-        MessageBox.Show(msg, "TailorShop", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        MessageBox.Show(msg, "Golden Tailor", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
     private void lblTitle_Click(object sender, EventArgs e) {
 

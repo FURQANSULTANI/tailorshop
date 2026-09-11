@@ -19,8 +19,7 @@ public class FieldDef
 
 public class Database
 {
-    private static readonly string DbPath = Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory, "golden_tailor.db");
+    private static readonly string DbPath = AppPaths.DbFile;
 
     private static string ConnectionString => $"Data Source={DbPath}";
 
@@ -104,6 +103,14 @@ public class Database
         }
         catch (SqliteException) { /* column already exists */ }
 
+        try
+        {
+            var alter = conn.CreateCommand();
+            alter.CommandText = "ALTER TABLE Orders ADD COLUMN DeliveryDate TEXT";
+            alter.ExecuteNonQuery();
+        }
+        catch (SqliteException) { /* column already exists */ }
+
         var backfillOrders = conn.CreateCommand();
         backfillOrders.CommandText = @"
             INSERT INTO Orders(CustomerId, Status)
@@ -131,7 +138,8 @@ public class Database
     private const string LatestOrderColumns = @"
         (SELECT o.Id FROM Orders o WHERE o.CustomerId = Customers.Id ORDER BY o.Id DESC LIMIT 1) AS LatestOrderId,
         (SELECT o.Status FROM Orders o WHERE o.CustomerId = Customers.Id ORDER BY o.Id DESC LIMIT 1) AS LatestOrderStatus,
-        (SELECT o.CreatedAt FROM Orders o WHERE o.CustomerId = Customers.Id ORDER BY o.Id DESC LIMIT 1) AS LatestOrderCreatedAt";
+        (SELECT o.CreatedAt FROM Orders o WHERE o.CustomerId = Customers.Id ORDER BY o.Id DESC LIMIT 1) AS LatestOrderCreatedAt,
+        (SELECT o.DeliveryDate FROM Orders o WHERE o.CustomerId = Customers.Id ORDER BY o.Id DESC LIMIT 1) AS LatestOrderDeliveryDate";
 
     public static Dictionary<long, List<Measurement>> GetSectionMeasurementsByOrder(List<long> orderIds, string section)
     {
@@ -317,17 +325,18 @@ public class Database
             var cmd = conn.CreateCommand();
             if (o.Id == 0)
             {
-                cmd.CommandText = @"INSERT INTO Orders(CustomerId,Status)
-                    VALUES($cid,$status); SELECT last_insert_rowid();";
+                cmd.CommandText = @"INSERT INTO Orders(CustomerId,Status,DeliveryDate)
+                    VALUES($cid,$status,$delivery); SELECT last_insert_rowid();";
             }
             else
             {
-                cmd.CommandText = @"UPDATE Orders SET Status=$status,
+                cmd.CommandText = @"UPDATE Orders SET Status=$status, DeliveryDate=$delivery,
                     UpdatedAt=datetime('now','localtime') WHERE Id=$id; SELECT $id;";
                 cmd.Parameters.AddWithValue("$id", o.Id);
             }
             cmd.Parameters.AddWithValue("$cid", o.CustomerId);
             cmd.Parameters.AddWithValue("$status", o.Status);
+            cmd.Parameters.AddWithValue("$delivery", (object?)o.DeliveryDate ?? DBNull.Value);
             o.Id = Convert.ToInt64(cmd.ExecuteScalar());
 
             var del = conn.CreateCommand();
@@ -474,6 +483,7 @@ public class Database
         UpdatedAt   = r["UpdatedAt"]?.ToString(),
         ReadyAt     = r["ReadyAt"] == DBNull.Value ? null : r["ReadyAt"].ToString(),
         DeliveredAt = r["DeliveredAt"] == DBNull.Value ? null : r["DeliveredAt"].ToString(),
+        DeliveryDate = r["DeliveryDate"] == DBNull.Value ? null : r["DeliveryDate"].ToString(),
     };
 
     // Default fields shown when creating a new customer
@@ -486,13 +496,8 @@ public class Database
             "Width (Tayari)", "Chest (Tayari)", "Waist (Tayari)", "Arm Hole",
             "Shalwar / Trouser Length", "Bottom", "Width (Ghera)", "Crotch Seam (Aasan)", "Hip",
 
-            new FieldDef { Name = "Collar",      Kind = FieldKind.Both, Options = new[] { "Sada", "Gol Nok" } },
-            new FieldDef { Name = "Bain",        Kind = FieldKind.Both, Options = new[] { "Sada", "Gol Nok" } },
-            new FieldDef { Name = "Front Pocket", Kind = FieldKind.Both, Options = new[] { "Sada", "Design" } },
-            new FieldDef { Name = "Cuff",        Kind = FieldKind.Both, Options = new[] { "Single", "Double", "Gol", "Chorus Cut" } },
-            "Front Patti",
-            new FieldDef { Name = "Side Pocket", Kind = FieldKind.Both, Options = new[] { "Double", "Single" } },
-            new FieldDef { Name = "Shalwar / Trouser Pocket", Kind = FieldKind.Both, Options = new[] { "Side", "Zip" } },
+            "Collar", "Bain", "Front Pocket", "Cuff", "Front Patti",
+            "Side Pocket", "Shalwar / Trouser Pocket",
         },
         ["Pant"]           = new() { "Length", "Waist", "Ghera", "Thigh (Raan)", "Knee (Ghutna)", "Bottom (Paincha)" },
         ["Coat / Sherwani"]= new() { "Length", "Chest", "Shoulder", "Arm" },
@@ -517,5 +522,6 @@ public class Database
         LatestOrderId     = r["LatestOrderId"] == DBNull.Value ? null : Convert.ToInt64(r["LatestOrderId"]),
         LatestOrderStatus = r["LatestOrderStatus"] == DBNull.Value ? null : r["LatestOrderStatus"].ToString(),
         LatestOrderCreatedAt = r["LatestOrderCreatedAt"] == DBNull.Value ? null : r["LatestOrderCreatedAt"].ToString(),
+        LatestOrderDeliveryDate = r["LatestOrderDeliveryDate"] == DBNull.Value ? null : r["LatestOrderDeliveryDate"].ToString(),
     };
 }

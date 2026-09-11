@@ -12,16 +12,20 @@ public partial class CustomerForm : Form
     // Print state
     private string _printSection = "";
     private List<(string Field, string Value)> _printRows = new();
+    private DateTimePicker? _dtDelivery;
+    private Func<bool>? _deliveryEnabled;
+    private readonly WhatsAppClient _waClient;
 
     public CustomerForm(Customer? customer, Order? order = null)
     {
         _isNew    = customer == null;
         _customer = customer ?? new Customer();
+        _waClient = new WhatsAppClient(WhatsAppConfig.Port);
         _order    = order ?? new Order { CustomerId = _customer.Id };
         InitializeComponent();
 
         lblHeader.Text = _isNew ? "✂  New Customer" : $"✂  Edit: {_customer.Name}";
-        Text           = _isNew ? "New Customer — TailorShop" : $"Edit: {_customer.Name}";
+        Text           = _isNew ? "New Customer — Golden Tailor" : $"Edit: {_customer.Name}";
 
         foreach (var section in Database.DefaultFields.Keys)
             tabControl.TabPages.Add(BuildMeasurementTab(section));
@@ -54,7 +58,13 @@ public partial class CustomerForm : Form
 
         using var backBrush = new SolidBrush(back);
         e.Graphics.FillRectangle(backBrush, e.Bounds);
-        TextRenderer.DrawText(e.Graphics, tab.Text, tabControl.Font, e.Bounds, fore,
+
+        using var borderPen = new Pen(Theme.DarkGold, 1f);
+        var border = new Rectangle(e.Bounds.X, e.Bounds.Y, e.Bounds.Width - 1, e.Bounds.Height - 1);
+        e.Graphics.DrawRectangle(borderPen, border);
+
+        var textArea = Rectangle.Inflate(e.Bounds, -4, 0);
+        TextRenderer.DrawText(e.Graphics, tab.Text, tabControl.Font, textArea, fore,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 
@@ -99,7 +109,8 @@ public partial class CustomerForm : Form
             Location  = new Point(12, 6),
             Cursor    = Cursors.Hand
         };
-        btnAddField.FlatAppearance.BorderSize = 0;
+        btnAddField.FlatAppearance.BorderSize  = 2;
+        btnAddField.FlatAppearance.BorderColor = Theme.DarkGold;
         Theme.ApplyLightHover(btnAddField);
         btnAddField.Click += (_, _) =>
         {
@@ -129,7 +140,8 @@ public partial class CustomerForm : Form
             Location  = new Point(150, 6),
             Cursor    = Cursors.Hand
         };
-        btnPrint.FlatAppearance.BorderSize = 0;
+        btnPrint.FlatAppearance.BorderSize  = 2;
+        btnPrint.FlatAppearance.BorderColor = Theme.DarkGold;
         Theme.ApplyLightHover(btnPrint);
         btnPrint.Click += (_, _) => PrintSection(section);
         Theme.RoundCorners(btnPrint, 6);
@@ -137,14 +149,35 @@ public partial class CustomerForm : Form
         toolbar.Controls.Add(btnAddField);
         toolbar.Controls.Add(btnPrint);
 
+        if (!isPos)
+        {
+            var btnSendWhatsApp = new Button
+            {
+                Text      = "Send via WhatsApp",
+                BackColor = Theme.DarkGrey,
+                ForeColor = Theme.TextOnDark,
+                FlatStyle = FlatStyle.Flat,
+                Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Size      = new Size(170, 32),
+                Location  = new Point(250, 6),
+                Cursor    = Cursors.Hand
+            };
+            btnSendWhatsApp.FlatAppearance.BorderSize  = 2;
+            btnSendWhatsApp.FlatAppearance.BorderColor = Theme.DarkGold;
+            btnSendWhatsApp.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
+            btnSendWhatsApp.Click += (_, _) => SendSectionViaWhatsApp(section);
+            Theme.RoundCorners(btnSendWhatsApp, 6);
+            toolbar.Controls.Add(btnSendWhatsApp);
+        }
+
         Button? btnNewSlip = null;
         if (isPos)
         {
             btnNewSlip = new Button
             {
                 Text      = "+  New Slip",
-                BackColor = Theme.DarkGold,
-                ForeColor = Theme.TextOnGold,
+                BackColor = Theme.DarkGrey,
+                ForeColor = Theme.TextOnDark,
                 FlatStyle = FlatStyle.Flat,
                 Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 Size      = new Size(110, 32),
@@ -152,11 +185,65 @@ public partial class CustomerForm : Form
                 Cursor    = Cursors.Hand,
                 Visible   = false
             };
-            btnNewSlip.FlatAppearance.BorderSize = 0;
-            btnNewSlip.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+            btnNewSlip.FlatAppearance.BorderSize  = 2;
+            btnNewSlip.FlatAppearance.BorderColor = Theme.DarkGold;
+            btnNewSlip.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
             btnNewSlip.Click += (_, _) => StartNewSlip();
             Theme.RoundCorners(btnNewSlip, 6);
             toolbar.Controls.Add(btnNewSlip);
+
+            var chkDelivery = new CheckBox
+            {
+                Text      = "Delivery Date",
+                Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = Theme.TextOnDark,
+                BackColor = Color.Transparent,
+                AutoSize  = true,
+                Cursor    = Cursors.Hand,
+                Location  = new Point(376, 13)
+            };
+            toolbar.Controls.Add(chkDelivery);
+
+            var deliveryHolder = new Panel
+            {
+                BackColor = Theme.DarkGold,
+                Size      = new Size(158, 30),
+                Location  = new Point(chkDelivery.Right + 12, 7)
+            };
+
+            _dtDelivery = new DateTimePicker
+            {
+                Format                  = DateTimePickerFormat.Custom,
+                CustomFormat            = "dd MMM yyyy",
+                Font                    = new Font("Segoe UI", 9.5f),
+                Size                    = new Size(154, 26),
+                Location                = new Point(2, 2),
+                CalendarMonthBackground = Theme.NormalGrey,
+                CalendarTitleBackColor  = Theme.DarkGrey,
+                CalendarTitleForeColor  = Theme.TextOnDark,
+                CalendarForeColor       = Theme.TextInk
+            };
+            deliveryHolder.Controls.Add(_dtDelivery);
+            toolbar.Controls.Add(deliveryHolder);
+
+            void SyncDeliveryState()
+            {
+                _dtDelivery.Enabled     = chkDelivery.Checked;
+                deliveryHolder.BackColor = chkDelivery.Checked
+                    ? Theme.DarkGold
+                    : Color.FromArgb(120, 255, 255, 255);
+            }
+
+            chkDelivery.CheckedChanged += (_, _) => SyncDeliveryState();
+
+            if (DateTime.TryParse(_order.DeliveryDate, out var dd))
+            {
+                _dtDelivery.Value   = dd;
+                chkDelivery.Checked = true;
+            }
+            else chkDelivery.Checked = false;
+            SyncDeliveryState();
+            _deliveryEnabled = () => chkDelivery.Checked;
         }
 
         tab.Controls.Add(toolbar);
@@ -728,7 +815,8 @@ public partial class CustomerForm : Form
             Location  = new Point(10, 6),
             Cursor    = Cursors.Hand
         };
-        btnAddField.FlatAppearance.BorderSize = 0;
+        btnAddField.FlatAppearance.BorderSize  = 2;
+        btnAddField.FlatAppearance.BorderColor = Theme.DarkGold;
         Theme.ApplyLightHover(btnAddField);
         Theme.RoundCorners(btnAddField, 6);
 
@@ -743,7 +831,8 @@ public partial class CustomerForm : Form
             Location  = new Point(140, 6),
             Cursor    = Cursors.Hand
         };
-        btnUpdate.FlatAppearance.BorderSize = 0;
+        btnUpdate.FlatAppearance.BorderSize  = 2;
+        btnUpdate.FlatAppearance.BorderColor = Theme.DarkGold;
         Theme.ApplyLightHover(btnUpdate);
         Theme.RoundCorners(btnUpdate, 6);
 
@@ -779,7 +868,7 @@ public partial class CustomerForm : Form
         btnUpdate.Click += (_, _) =>
         {
             SaveHistoryBar(pastOrder, barScroll, section);
-            MessageBox.Show("Purani slip update ho gayi.", "TailorShop",
+            MessageBox.Show("Purani slip update ho gayi.", "Golden Tailor",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
 
@@ -835,13 +924,14 @@ public partial class CustomerForm : Form
         if (_printRows.Count == 0)
         {
             MessageBox.Show("Print karne ke liye koi measurement nahi hai.",
-                "TailorShop", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                "Golden Tailor", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         using var printDoc = new PrintDocument();
-        printDoc.DocumentName = $"TailorShop - {_customer.Name} - {section}";
+        printDoc.DocumentName = $"Golden Tailor - {_customer.Name} - {section}";
         printDoc.PrintPage   += PrintPage;
+        ApplyReceiptPaper(printDoc);
 
         using var preview = new PrintPreviewDialog
         {
@@ -849,7 +939,48 @@ public partial class CustomerForm : Form
             WindowState = FormWindowState.Maximized,
             Text        = $"Print Preview — {_customer.Name} — {section}"
         };
+        preview.PrintPreviewControl.AutoZoom = false;
+        preview.PrintPreviewControl.Zoom     = 2.0;
+        SelectPreviewZoom(preview, "200%");
         preview.ShowDialog(this);
+    }
+
+    private static void SelectPreviewZoom(PrintPreviewDialog preview, string label)
+    {
+        try
+        {
+            var strip = preview.Controls.OfType<ToolStrip>().FirstOrDefault();
+            var split = strip?.Items.OfType<ToolStripSplitButton>().FirstOrDefault();
+            if (split == null) return;
+
+            foreach (var item in split.DropDownItems.OfType<ToolStripMenuItem>())
+                item.Checked = item.Text == label;
+        }
+        catch
+        {
+        }
+    }
+
+    private const int ReceiptWidthHundredths = 315;
+    private const int ReceiptMaxHeightHundredths = 3900;
+
+    private static void ApplyReceiptPaper(PrintDocument doc)
+    {
+        try
+        {
+            var existing = doc.PrinterSettings.PaperSizes
+                .Cast<PaperSize>()
+                .FirstOrDefault(p => Math.Abs(p.Width - ReceiptWidthHundredths) <= 12);
+
+            doc.DefaultPageSettings.PaperSize = existing
+                ?? new PaperSize("80mm Roll", ReceiptWidthHundredths, ReceiptMaxHeightHundredths);
+
+            doc.DefaultPageSettings.Margins = new Margins(12, 12, 12, 12);
+            doc.OriginAtMargins = false;
+        }
+        catch
+        {
+        }
     }
 
     private List<(string, string)> CollectRows(string section)
@@ -888,144 +1019,190 @@ public partial class CustomerForm : Form
         return list;
     }
 
+    private void SendSectionViaWhatsApp(string section)
+    {
+        if (string.IsNullOrWhiteSpace(_customer.Phone))
+        {
+            MessageBox.Show($"'{_customer.Name}' ka phone number save nahi hai.", "Golden Tailor",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var rows = CollectRows(section);
+        if (rows.Count == 0)
+        {
+            MessageBox.Show("Bhejne ke liye koi measurement nahi hai.", "Golden Tailor",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var health = _waClient.GetHealth();
+        if (health.Status != "ready")
+        {
+            MessageBox.Show(!string.IsNullOrWhiteSpace(health.Error)
+                ? health.Error!
+                : "WhatsApp connected nahi hai. Pehle 'Re-link WhatsApp' pe click karke QR code scan karein, phir dobara koshish karein.",
+                "Golden Tailor", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var defaultMessage = BuildMeasurementMessage(section, rows);
+
+        using var dlg = new WhatsAppSendForm(_customer.Name, _customer.Phone!, defaultMessage);
+        if (dlg.ShowDialog(this) != DialogResult.OK || dlg.Message.Length == 0) return;
+
+        var phone   = _customer.Phone!;
+        var text    = dlg.Message;
+        var custId  = _customer.Id;
+        var orderId = _order.Id;
+
+        UseWaitCursor = true;
+        Task.Run(() =>
+        {
+            bool success; string? error = null;
+            try
+            {
+                var queueId = Database.EnqueueWhatsAppMessage(orderId, custId, phone, text);
+                (success, error) = _waClient.Send(phone, text);
+                if (success) Database.MarkWhatsAppSent(queueId);
+                else Database.MarkWhatsAppAttemptFailed(queueId, error ?? "Unknown error");
+            }
+            catch (Exception ex) { success = false; error = ex.Message; }
+
+            try
+            {
+                BeginInvoke(() =>
+                {
+                    UseWaitCursor = false;
+                    MessageBox.Show(success
+                        ? "WhatsApp message bhej diya gaya."
+                        : $"Message send nahi ho saka.\n\nWajah: {error}\n\nMessage queue mein mehfooz hai — WhatsApp connect hone par khud bhej diya jayega.",
+                        "Golden Tailor", MessageBoxButtons.OK, success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                });
+            }
+            catch { }
+        });
+    }
+
+    private string BuildMeasurementMessage(string section, List<(string Field, string Value)> rows)
+    {
+        var lines = new List<string> { $"{_customer.Name} - {section} Measurements", "" };
+        lines.AddRange(rows.Select(r => $"{r.Field}: {r.Value}"));
+        return string.Join(Environment.NewLine, lines);
+    }
+
     private void PrintPage(object sender, PrintPageEventArgs e)
     {
-        var g      = e.Graphics!;
-        float x    = 60f;
-        float y    = 50f;
-        float pageW = e.PageBounds.Width - 120f;
+        var g = e.Graphics!;
 
-        // ── Shop Header ───────────────────────────────────────────────
-        using var shopFont   = new Font("Segoe UI", 22f, FontStyle.Bold);
-        using var subFont    = new Font("Segoe UI", 10f, FontStyle.Italic);
-        using var goldBrush  = new SolidBrush(Theme.TextInk);
-        using var darkBrush  = new SolidBrush(Theme.TextInk);
-        using var grayBrush  = new SolidBrush(Color.FromArgb(180, Theme.TextInk));
-        using var whiteBrush = new SolidBrush(Color.White);
+        float x     = e.MarginBounds.Left;
+        float pageW = e.MarginBounds.Width;
+        float y     = e.MarginBounds.Top;
 
-        float titleH    = shopFont.GetHeight(g);
-        float subtitleY = y + titleH + 2;
-        float subtitleH = subFont.GetHeight(g);
+        using var shopFont   = new Font("Segoe UI", 13f, FontStyle.Bold);
+        using var subFont    = new Font("Segoe UI", 7f, FontStyle.Italic);
+        using var darkBrush  = new SolidBrush(Color.Black);
+        using var grayBrush  = new SolidBrush(Color.FromArgb(120, 0, 0, 0));
 
-        // Header background bar
-        using var headerBg = new SolidBrush(Theme.DarkGrey);
-        g.FillRectangle(headerBg, x - 20, y - 10, pageW + 40, subtitleY + subtitleH - y + 16);
+        using var centerFormat = new StringFormat { Alignment = StringAlignment.Center };
+        using var labelFormat  = new StringFormat { Alignment = StringAlignment.Near,  LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
+        using var valueFormat  = new StringFormat { Alignment = StringAlignment.Far,   LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
 
-        g.DrawString("✂  TailorShop", shopFont, new SolidBrush(Theme.TextOnDark), x, y);
-        g.DrawString("Professional Tailoring Services", subFont,
-            new SolidBrush(Theme.TextOnDark), x + 2, subtitleY);
-        y = subtitleY + subtitleH + 26;
+        g.DrawString("Golden Tailor", shopFont, darkBrush, new RectangleF(x, y, pageW, 22f), centerFormat);
+        y += shopFont.GetHeight(g) + 1;
+        g.DrawString("Professional Tailoring Services", subFont, darkBrush, new RectangleF(x, y, pageW, 14f), centerFormat);
+        y += subFont.GetHeight(g) + 6;
 
-        // ── Divider ───────────────────────────────────────────────────
-        using var goldPen = new Pen(Theme.DarkGold, 2);
-        g.DrawLine(goldPen, x - 20, y, x + pageW + 20, y);
-        y += 14;
+        using var rulePen = new Pen(Color.Black, 1f);
+        g.DrawLine(rulePen, x, y, x + pageW, y);
+        y += 6;
 
-        // ── Customer Info ─────────────────────────────────────────────
-        using var infoTitleFont = new Font("Segoe UI", 10f, FontStyle.Bold);
-        using var infoFont      = new Font("Segoe UI", 10f);
+        using var infoFont = new Font("Segoe UI", 8f);
 
-        g.DrawString("Customer Information", infoTitleFont, goldBrush, x, y);
-        y += 20;
+        DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, pageW, ref y, "Name",  _customer.Name);
+        DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, pageW, ref y, "Phone", _customer.Phone ?? "-");
+        DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, pageW, ref y, "Date",  DateTime.Now.ToString("dd MMM yyyy"));
 
-        DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, ref y, "Name",    _customer.Name);
-        DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, ref y, "Phone",   _customer.Phone    ?? "—");
-        DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, ref y, "Address", _customer.Address  ?? "—");
-        DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, ref y, "Date",
-            DateTime.Now.ToString("dd MMM yyyy"));
-        y += 8;
+        var deliveryText = _dtDelivery != null && _deliveryEnabled?.Invoke() == true
+            ? _dtDelivery.Value.ToString("dd MMM yyyy")
+            : (DateTime.TryParse(_order.DeliveryDate, out var pd) ? pd.ToString("dd MMM yyyy") : null);
+        if (deliveryText != null)
+            DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, pageW, ref y, "Delivery", deliveryText);
 
-        // ── Divider ───────────────────────────────────────────────────
-        g.DrawLine(goldPen, x - 20, y, x + pageW + 20, y);
-        y += 14;
+        y += 4;
+        g.DrawLine(rulePen, x, y, x + pageW, y);
+        y += 6;
 
-        // ── Section Title ─────────────────────────────────────────────
-        using var secFont = new Font("Segoe UI", 13f, FontStyle.Bold);
-        g.DrawString($"{_printSection} Measurements", secFont, goldBrush, x, y);
-        y += 28;
-
-        // ── Measurement Grid — two label:value pairs per line, right-to-left ───
-        using var rowAltBg    = new SolidBrush(Theme.NormalGrey);
-        using var gridBorder  = new Pen(Theme.DarkGrey);
-        using var smallUrdu   = new Font("Urdu Typesetting", 12f);
-        using var labelFormat = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
-        using var valueFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-
+        using var secFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         bool isPosSlip = _printSection == "Point Of Sale";
-        float rowH   = 36f;
-        float gap    = 16f;
-        float halfW  = (pageW - gap) / 2f;
-        float valueW = 110f;
+        g.DrawString(isPosSlip ? _printSection : $"{_printSection} Measurements",
+            secFont, darkBrush, new RectangleF(x, y, pageW, 16f), centerFormat);
+        y += secFont.GetHeight(g) + 5;
 
-        void DrawCell(float cellX, float cellW, string field, string val, bool shade)
+        using var dottedPen = new Pen(Color.FromArgb(150, 0, 0, 0), 1f)
         {
-            if (shade) g.FillRectangle(rowAltBg, cellX, y, cellW, rowH);
-            g.DrawRectangle(gridBorder, cellX, y, cellW, rowH);
-            g.DrawLine(gridBorder, cellX + valueW, y, cellX + valueW, y + rowH);
-            g.DrawString(val, smallUrdu, darkBrush, new RectangleF(cellX, y, valueW, rowH), valueFormat);
-            g.DrawString(field + " :", Theme.UrduFont, darkBrush,
-                new RectangleF(cellX + valueW + 4, y, cellW - valueW - 8, rowH), labelFormat);
+            DashStyle = System.Drawing.Drawing2D.DashStyle.Dot
+        };
+        using var latinFont = new Font("Segoe UI", 8.5f);
+
+        Font FontFor(string text) =>
+            text.Any(ch => ch >= 0x0600 && ch <= 0x06FF) ? Theme.UrduFontSmall : latinFont;
+
+        float rowH   = 15f;
+        float valueW = pageW * 0.38f;
+        float labelW = pageW - valueW;
+
+        foreach (var (field, val) in _printRows)
+        {
+            g.DrawString(field, FontFor(field), darkBrush,
+                new RectangleF(x, y, labelW, rowH), labelFormat);
+            g.DrawString(val, FontFor(val), darkBrush,
+                new RectangleF(x + labelW, y, valueW, rowH), valueFormat);
+            y += rowH;
+            g.DrawLine(dottedPen, x, y, x + pageW, y);
+            y += 2;
         }
 
-        if (isPosSlip)
-        {
-            // Billing slip — one line item per row, full width, top to bottom.
-            bool alt = false;
-            foreach (var (field, val) in _printRows)
-            {
-                DrawCell(x, pageW, field, val, alt);
-                y  += rowH;
-                alt = !alt;
-            }
-        }
-        else
-        {
-            // Measurement chit — two label:value pairs per line, right-to-left.
-            bool alt = false;
-            for (int i = 0; i < _printRows.Count; i += 2)
-            {
-                var (f1, v1) = _printRows[i];
-                DrawCell(x + halfW + gap, halfW, f1, v1, alt);
-                if (i + 1 < _printRows.Count)
-                {
-                    var (f2, v2) = _printRows[i + 1];
-                    DrawCell(x, halfW, f2, v2, alt);
-                }
-                y  += rowH;
-                alt = !alt;
-            }
-        }
+        y += 6;
+        g.DrawLine(rulePen, x, y, x + pageW, y);
+        y += 5;
 
-        y += 20;
-        // ── Footer ───────────────────────────────────────────────────
-        g.DrawLine(goldPen, x - 20, y, x + pageW + 20, y);
-        y += 8;
-        using var footerFont = new Font("Segoe UI", 8.5f, FontStyle.Italic);
-        g.DrawString("TailorShop  •  Thank you for your trust!",
-            footerFont, grayBrush, x, y);
-        g.DrawString($"Printed: {DateTime.Now:dd MMM yyyy  hh:mm tt}",
-            footerFont, grayBrush, x + pageW - 180, y);
+        using var footerFont = new Font("Segoe UI", 7f);
+        g.DrawString("Thank you for your trust!", footerFont, darkBrush,
+            new RectangleF(x, y, pageW, 12f), centerFormat);
+        y += footerFont.GetHeight(g) + 1;
+        g.DrawString($"Printed: {DateTime.Now:dd MMM yyyy hh:mm tt}", footerFont, grayBrush,
+            new RectangleF(x, y, pageW, 12f), centerFormat);
+        y += footerFont.GetHeight(g) + 6;
 
-        y += 26;
-        DrawBrandingFooter(g, x, y);
+        DrawBrandingFooter(g, x, pageW, y, centerFormat);
 
         e.HasMorePages = false;
     }
 
-    private static void DrawBrandingFooter(Graphics g, float x, float y)
+    private static void DrawBrandingFooter(Graphics g, float x, float width, float y, StringFormat format)
     {
-        using var brandFont = new Font("Segoe UI", 10f, FontStyle.Bold);
-        using var brandBrush = new SolidBrush(Theme.TextInk);
-        g.DrawString("For Business Solution Call 03043713001", brandFont, brandBrush, x, y);
+        using var brandFont  = new Font("Segoe UI", 6.5f, FontStyle.Bold);
+        using var brandBrush = new SolidBrush(Color.Black);
+        g.DrawString("For Business Solution Call 03043713001", brandFont, brandBrush,
+            new RectangleF(x, y, width, 12f), format);
     }
 
     private static void DrawInfoRow(Graphics g, Font font,
-        Brush dark, Brush gray, float x, ref float y,
+        Brush dark, Brush gray, float x, float width, ref float y,
         string label, string value)
     {
+        using var valueFormat = new StringFormat
+        {
+            Alignment = StringAlignment.Far,
+            Trimming  = StringTrimming.EllipsisCharacter
+        };
+
+        var valueFont = value.Any(ch => ch >= 0x0600 && ch <= 0x06FF) ? Theme.UrduFontSmall : font;
+
         g.DrawString($"{label}:", font, gray, x, y);
-        g.DrawString(value,       font, dark, x + 80, y);
-        y += 18;
+        g.DrawString(value, valueFont, dark, new RectangleF(x + 42f, y, width - 42f, 14f), valueFormat);
+        y += 13f;
     }
 
     // ── Save ─────────────────────────────────────────────────────────────────
@@ -1034,7 +1211,7 @@ public partial class CustomerForm : Form
     {
         if (string.IsNullOrWhiteSpace(txtName.Text))
         {
-            MessageBox.Show("Customer ka naam zaroor likhein!", "TailorShop",
+            MessageBox.Show("Customer ka naam zaroor likhein!", "Golden Tailor",
                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -1082,6 +1259,9 @@ public partial class CustomerForm : Form
 
         Database.SaveCustomer(_customer);
         _order.CustomerId = _customer.Id;
+        _order.DeliveryDate = _dtDelivery != null && _deliveryEnabled?.Invoke() == true
+            ? _dtDelivery.Value.ToString("yyyy-MM-dd")
+            : null;
         Database.SaveOrder(_order);
         DialogResult = DialogResult.OK;
         Close();

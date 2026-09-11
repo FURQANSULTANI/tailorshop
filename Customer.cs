@@ -12,6 +12,7 @@ public class Customer
     public long?   LatestOrderId        { get; set; }
     public string? LatestOrderStatus    { get; set; }
     public string? LatestOrderCreatedAt { get; set; }
+    public string? LatestOrderDeliveryDate { get; set; }
 
     public override string ToString() => Name;
 }

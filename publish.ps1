@@ -38,6 +38,9 @@ Remove-Item -Recurse -Force (Join-Path $svcOut ".wwebjs_auth")  -ErrorAction Sil
 Remove-Item -Recurse -Force (Join-Path $svcOut ".wwebjs_cache") -ErrorAction SilentlyContinue
 Remove-Item -Force (Join-Path $outDir "golden_tailor.db")       -ErrorAction SilentlyContinue
 Remove-Item -Force (Join-Path $outDir "whatsapp-service.log")   -ErrorAction SilentlyContinue
+Remove-Item -Force (Join-Path $outDir "license.key")            -ErrorAction SilentlyContinue
+
+Copy-Item "$root\update.ps1" $outDir -Force -ErrorAction SilentlyContinue
 
 $size = "{0:N0} MB" -f ((Get-ChildItem $outDir -Recurse | Measure-Object Length -Sum).Sum / 1MB)
 Write-Host ""

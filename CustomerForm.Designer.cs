@@ -48,6 +48,7 @@ partial class CustomerForm
         this.tabControl.Name     = "tabControl";
         this.tabControl.TabIndex = 0;
         this.tabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
+        this.tabControl.Padding  = new Point(14, 4);
         this.tabControl.Controls.Add(this.tabInfo);
         // Measurement tabs are added dynamically in code
 
@@ -152,10 +153,10 @@ partial class CustomerForm
         this.panelBottom.Size     = new Size(720, 56);
 
         // btnSave
-        this.btnSave.BackColor = Theme.DarkGold;
+        this.btnSave.BackColor = Theme.DarkGrey;
         this.btnSave.FlatStyle = FlatStyle.Flat;
         this.btnSave.Font      = new Font("Segoe UI", 10f, FontStyle.Bold);
-        this.btnSave.ForeColor = Theme.TextOnGold;
+        this.btnSave.ForeColor = Theme.TextOnDark;
         this.btnSave.Location  = new Point(16, 11);
         this.btnSave.Name      = "btnSave";
         this.btnSave.Size      = new Size(155, 34);
@@ -163,7 +164,9 @@ partial class CustomerForm
         this.btnSave.Text      = "Save Customer";
         this.btnSave.UseVisualStyleBackColor = false;
         this.btnSave.Cursor    = Cursors.Hand;
-        this.btnSave.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+        this.btnSave.FlatAppearance.BorderSize  = 2;
+        this.btnSave.FlatAppearance.BorderColor = Theme.DarkGold;
+        this.btnSave.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
 
         // btnCancel
         this.btnCancel.BackColor    = Theme.NormalGrey;
@@ -178,6 +181,8 @@ partial class CustomerForm
         this.btnCancel.Text         = "Cancel";
         this.btnCancel.UseVisualStyleBackColor = false;
         this.btnCancel.Cursor       = Cursors.Hand;
+        this.btnCancel.FlatAppearance.BorderSize  = 2;
+        this.btnCancel.FlatAppearance.BorderColor = Theme.DarkGold;
         this.btnCancel.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
 
         // ── Form ─────────────────────────────────────────────────────

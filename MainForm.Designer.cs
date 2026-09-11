@@ -30,6 +30,7 @@ partial class MainForm
         colName = new DataGridViewTextBoxColumn();
         colPhone = new DataGridViewTextBoxColumn();
         colDate = new DataGridViewTextBoxColumn();
+        colDelivery = new DataGridViewTextBoxColumn();
         colOrderStatus = new DataGridViewTextBoxColumn();
         colRemaining = new DataGridViewTextBoxColumn();
         colMarkReady = new DataGridViewButtonColumn();
@@ -58,7 +59,7 @@ partial class MainForm
         lblTitle.Location = new Point(20, 15);
         lblTitle.Name = "lblTitle";
         lblTitle.TabIndex = 0;
-        lblTitle.Text = "✂TailorShop";
+        lblTitle.Text = "✂Golden Tailor";
         lblTitle.Click += lblTitle_Click;
         //
         // lblSubtitle
@@ -245,7 +246,7 @@ partial class MainForm
         grid.BackgroundColor = Theme.NormalGrey;
         grid.BorderStyle = BorderStyle.None;
         grid.ColumnHeadersHeight = 42;
-        grid.Columns.AddRange(new DataGridViewColumn[] { colId, colName, colPhone, colDate, colOrderStatus, colRemaining, colMarkReady });
+        grid.Columns.AddRange(new DataGridViewColumn[] { colId, colName, colPhone, colDate, colDelivery, colOrderStatus, colRemaining, colMarkReady });
         grid.Dock = DockStyle.Fill;
         grid.Location = new Point(0, 138);
         grid.MultiSelect = false;
@@ -291,6 +292,15 @@ partial class MainForm
         colDate.Name = "colDate";
         colDate.ReadOnly = true;
         //
+        // colDelivery
+        //
+        colDelivery.FillWeight = 16F;
+        colDelivery.HeaderText = "Delivery Date";
+        colDelivery.MinimumWidth = 6;
+        colDelivery.Name = "colDelivery";
+        colDelivery.ReadOnly = true;
+        colDelivery.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        //
         // colOrderStatus
         //
         colOrderStatus.FillWeight = 15F;
@@ -335,7 +345,7 @@ partial class MainForm
         Name = "MainForm";
         StartPosition = FormStartPosition.CenterScreen;
         WindowState = FormWindowState.Maximized;
-        Text = "TailorShop — Customer Management";
+        Text = "Golden Tailor — Customer Management";
         panelHeader.ResumeLayout(false);
         panelHeader.PerformLayout();
         panelSearch.ResumeLayout(false);
@@ -366,6 +376,7 @@ partial class MainForm
     private DataGridViewTextBoxColumn colName    = null!;
     private DataGridViewTextBoxColumn colPhone   = null!;
     private DataGridViewTextBoxColumn colDate    = null!;
+    private DataGridViewTextBoxColumn colDelivery = null!;
     private DataGridViewTextBoxColumn colOrderStatus = null!;
     private DataGridViewTextBoxColumn colRemaining  = null!;
     private DataGridViewButtonColumn colMarkReady = null!;
