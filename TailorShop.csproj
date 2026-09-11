@@ -11,10 +11,11 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
   <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);WhatsAppService\node_modules\**;WhatsAppService\.wwebjs_auth\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);WhatsAppService\node_modules\**;WhatsAppService\.wwebjs_auth\**;LicenseGenerator\**;publish\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

@@ -15,9 +15,11 @@ public partial class MainForm : Form {
         InitializeComponent();
         ApplyGridStyles();
         ApplyPolish();
+        BuildBackupButton();
         WireEvents();
         Database.Initialize();
         LoadCustomers();
+        Task.Run(Backup.RunIfDue);
 
         WhatsAppConfig.Load();
         _waClient = new WhatsAppClient(WhatsAppConfig.Port);
@@ -38,6 +40,38 @@ public partial class MainForm : Form {
 
         panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
         panelBottom.Controls.Add(Theme.AccentDivider(DockStyle.Top));
+    }
+
+    private void BuildBackupButton() {
+        var btnBackup = new Button {
+            Text      = "Backup & Restore",
+            BackColor = Theme.NormalGrey,
+            ForeColor = Theme.TextOnNormal,
+            FlatStyle = FlatStyle.Flat,
+            Font      = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Size      = new Size(175, 33),
+            Anchor    = AnchorStyles.Top | AnchorStyles.Right,
+            Location  = new Point(panelBottom.Width - 189, 12),
+            Cursor    = Cursors.Hand,
+            UseVisualStyleBackColor = false
+        };
+        btnBackup.FlatAppearance.BorderSize  = 2;
+        btnBackup.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnBackup.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
+        Theme.RoundCorners(btnBackup, 6);
+        btnBackup.Click += BtnBackup_Click;
+
+        panelBottom.Controls.Add(btnBackup);
+        btnBackup.BringToFront();
+    }
+
+    private void BtnBackup_Click(object? sender, EventArgs e) {
+        using var form = new BackupForm();
+        form.ShowDialog(this);
+        if (form.DataRestored) {
+            Database.Initialize();
+            LoadCustomers();
+        }
     }
 
     private void BuildHeaderBrand() {

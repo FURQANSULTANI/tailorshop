@@ -5,3 +5,11 @@ obj/
 *.db
 *.db-shm
 *.db-wal
+*.key
+license.key
+publish/
+WhatsAppService/node/
+WhatsAppService/node_modules/
+WhatsAppService/.wwebjs_auth/
+WhatsAppService/.wwebjs_cache/
+*.log

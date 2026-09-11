@@ -19,8 +19,7 @@ public class FieldDef
 
 public class Database
 {
-    private static readonly string DbPath = Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory, "golden_tailor.db");
+    private static readonly string DbPath = AppPaths.DbFile;
 
     private static string ConnectionString => $"Data Source={DbPath}";
 
@@ -502,8 +501,6 @@ public class Database
 
             // بازو شپ, بازو جوک, شلوار لمبائی, پائنچہ, شلوار گھیرہ, آسن, بپ — every column NA in the table, so skipped
         },
-        ["Pant"]           = new() { "لمبائی", "کمر", "گھیرا", "ران", "گھٹنا", "پائنچہ" },
-        ["Coat / Sherwani"]= new() { "لمبائی", "چھاتی", "کندھا", "بازو" },
         ["Point Of Sale"]  = new()
         {
             new FieldDef { Name = "سوٹ سلائی",   Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true, HasQuantity = true },
