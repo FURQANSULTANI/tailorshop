@@ -43,6 +43,10 @@ public class WhatsAppSendForm : Form
         };
         btnSend.FlatAppearance.BorderSize = 0;
         btnSend.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+        btnSend.Image             = Theme.CreateChatBubbleIcon(btnSend.ForeColor, 16);
+        btnSend.ImageAlign        = ContentAlignment.MiddleLeft;
+        btnSend.TextImageRelation = TextImageRelation.ImageBeforeText;
+        btnSend.Padding           = new Padding(6, 0, 6, 0);
         btnSend.Click += (_, _) => { DialogResult = DialogResult.OK; Close(); };
 
         var btnCancel = new Button
@@ -57,6 +61,7 @@ public class WhatsAppSendForm : Form
             Cursor    = Cursors.Hand
         };
         Theme.ApplyLightHover(btnCancel);
+        Theme.SetIcon(btnCancel, Theme.Glyph.Cancel);
         btnCancel.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
 
         panelButtons.Controls.Add(btnSend);
@@ -83,5 +88,6 @@ public class WhatsAppSendForm : Form
 
         Theme.RoundCorners(btnSend, 6);
         Theme.RoundCorners(btnCancel, 6);
+        Shown += (_, _) => Theme.CenterButtons(this);
     }
 }

@@ -99,6 +99,30 @@ public static class Theme
         };
     }
 
+    public static void PaintFieldBand(Control container, int bandTop, int bandHeight, params Control[] fields)
+    {
+        foreach (var f in fields)
+        {
+            if (f is TextBox tb) tb.BorderStyle = BorderStyle.None;
+            f.LocationChanged += (_, _) => container.Invalidate();
+            f.SizeChanged     += (_, _) => container.Invalidate();
+            f.VisibleChanged  += (_, _) => container.Invalidate();
+        }
+
+        container.Resize += (_, _) => container.Invalidate();
+
+        container.Paint += (_, e) =>
+        {
+            using var pen = new Pen(DarkGold, 1f);
+            foreach (var f in fields)
+            {
+                if (f.Parent != container) continue;
+                if (!f.Visible) continue;
+                e.Graphics.DrawRectangle(pen, f.Left - 3, bandTop - 1, f.Width + 5, bandHeight + 1);
+            }
+        };
+    }
+
     public static void ApplyLightHover(Button btn)
     {
         var restFore = btn.ForeColor;
@@ -142,6 +166,164 @@ public static class Theme
     // A simple chat-bubble glyph drawn in the palette color, instead of a WhatsApp
     // emoji/logo — emoji render as fixed multi-color glyphs regardless of the
     // control's ForeColor, breaking the 3-color rule.
+    public enum Glyph
+    {
+        Search, Clear, Add, Edit, Delete, Backup, Restore, Stock,
+        History, Print, Save, Cancel, Folder, Cloud, Close, Key, Copy
+    }
+
+    public static Bitmap Icon(Glyph glyph, Color color, int size = 16)
+    {
+        var bmp = new Bitmap(size, size);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        float s      = size;
+        float stroke = Math.Max(1.4f, s / 9f);
+        using var pen   = new Pen(color, stroke) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        using var brush = new SolidBrush(color);
+
+        switch (glyph)
+        {
+            case Glyph.Search:
+                g.DrawEllipse(pen, s * 0.14f, s * 0.14f, s * 0.52f, s * 0.52f);
+                g.DrawLine(pen, s * 0.62f, s * 0.62f, s * 0.86f, s * 0.86f);
+                break;
+
+            case Glyph.Clear:
+            case Glyph.Close:
+            case Glyph.Cancel:
+                g.DrawLine(pen, s * 0.22f, s * 0.22f, s * 0.78f, s * 0.78f);
+                g.DrawLine(pen, s * 0.78f, s * 0.22f, s * 0.22f, s * 0.78f);
+                break;
+
+            case Glyph.Add:
+                g.DrawLine(pen, s * 0.5f, s * 0.18f, s * 0.5f, s * 0.82f);
+                g.DrawLine(pen, s * 0.18f, s * 0.5f, s * 0.82f, s * 0.5f);
+                break;
+
+            case Glyph.Edit:
+                g.DrawLine(pen, s * 0.20f, s * 0.80f, s * 0.68f, s * 0.30f);
+                g.DrawLine(pen, s * 0.68f, s * 0.30f, s * 0.82f, s * 0.44f);
+                g.DrawLine(pen, s * 0.82f, s * 0.44f, s * 0.34f, s * 0.86f);
+                g.DrawLine(pen, s * 0.20f, s * 0.80f, s * 0.34f, s * 0.86f);
+                break;
+
+            case Glyph.Delete:
+                g.DrawLine(pen, s * 0.18f, s * 0.26f, s * 0.82f, s * 0.26f);
+                g.DrawRectangle(pen, s * 0.26f, s * 0.26f, s * 0.48f, s * 0.58f);
+                g.DrawLine(pen, s * 0.40f, s * 0.14f, s * 0.60f, s * 0.14f);
+                g.DrawLine(pen, s * 0.44f, s * 0.42f, s * 0.44f, s * 0.70f);
+                g.DrawLine(pen, s * 0.58f, s * 0.42f, s * 0.58f, s * 0.70f);
+                break;
+
+            case Glyph.Backup:
+                g.DrawLine(pen, s * 0.5f, s * 0.16f, s * 0.5f, s * 0.62f);
+                g.DrawLine(pen, s * 0.30f, s * 0.44f, s * 0.5f, s * 0.64f);
+                g.DrawLine(pen, s * 0.70f, s * 0.44f, s * 0.5f, s * 0.64f);
+                g.DrawLine(pen, s * 0.18f, s * 0.82f, s * 0.82f, s * 0.82f);
+                break;
+
+            case Glyph.Restore:
+                g.DrawArc(pen, s * 0.16f, s * 0.16f, s * 0.68f, s * 0.68f, 40, 280);
+                g.DrawLine(pen, s * 0.80f, s * 0.14f, s * 0.80f, s * 0.38f);
+                g.DrawLine(pen, s * 0.80f, s * 0.38f, s * 0.56f, s * 0.38f);
+                break;
+
+            case Glyph.Stock:
+                g.DrawRectangle(pen, s * 0.14f, s * 0.34f, s * 0.72f, s * 0.50f);
+                g.DrawLine(pen, s * 0.14f, s * 0.50f, s * 0.86f, s * 0.50f);
+                g.DrawLine(pen, s * 0.28f, s * 0.34f, s * 0.40f, s * 0.14f);
+                g.DrawLine(pen, s * 0.72f, s * 0.34f, s * 0.60f, s * 0.14f);
+                g.DrawLine(pen, s * 0.40f, s * 0.14f, s * 0.60f, s * 0.14f);
+                break;
+
+            case Glyph.History:
+                g.DrawEllipse(pen, s * 0.16f, s * 0.16f, s * 0.68f, s * 0.68f);
+                g.DrawLine(pen, s * 0.5f, s * 0.32f, s * 0.5f, s * 0.52f);
+                g.DrawLine(pen, s * 0.5f, s * 0.52f, s * 0.68f, s * 0.62f);
+                break;
+
+            case Glyph.Print:
+                g.DrawRectangle(pen, s * 0.30f, s * 0.12f, s * 0.40f, s * 0.22f);
+                g.DrawRectangle(pen, s * 0.14f, s * 0.34f, s * 0.72f, s * 0.34f);
+                g.DrawRectangle(pen, s * 0.30f, s * 0.60f, s * 0.40f, s * 0.28f);
+                break;
+
+            case Glyph.Save:
+                g.DrawRectangle(pen, s * 0.16f, s * 0.16f, s * 0.68f, s * 0.68f);
+                g.DrawRectangle(pen, s * 0.34f, s * 0.16f, s * 0.32f, s * 0.26f);
+                g.DrawRectangle(pen, s * 0.30f, s * 0.56f, s * 0.40f, s * 0.28f);
+                break;
+
+            case Glyph.Folder:
+                g.DrawLine(pen, s * 0.12f, s * 0.28f, s * 0.44f, s * 0.28f);
+                g.DrawLine(pen, s * 0.44f, s * 0.28f, s * 0.52f, s * 0.38f);
+                g.DrawLine(pen, s * 0.52f, s * 0.38f, s * 0.88f, s * 0.38f);
+                g.DrawRectangle(pen, s * 0.12f, s * 0.28f, s * 0.76f, s * 0.52f);
+                break;
+
+            case Glyph.Cloud:
+                g.DrawArc(pen, s * 0.10f, s * 0.34f, s * 0.40f, s * 0.40f, 90, 180);
+                g.DrawArc(pen, s * 0.30f, s * 0.20f, s * 0.44f, s * 0.44f, 180, 180);
+                g.DrawArc(pen, s * 0.54f, s * 0.36f, s * 0.36f, s * 0.36f, 270, 180);
+                g.DrawLine(pen, s * 0.28f, s * 0.74f, s * 0.72f, s * 0.74f);
+                break;
+
+            case Glyph.Key:
+                g.DrawEllipse(pen, s * 0.12f, s * 0.36f, s * 0.34f, s * 0.34f);
+                g.DrawLine(pen, s * 0.44f, s * 0.53f, s * 0.88f, s * 0.53f);
+                g.DrawLine(pen, s * 0.74f, s * 0.53f, s * 0.74f, s * 0.72f);
+                g.DrawLine(pen, s * 0.86f, s * 0.53f, s * 0.86f, s * 0.68f);
+                break;
+
+            case Glyph.Copy:
+                g.DrawRectangle(pen, s * 0.14f, s * 0.14f, s * 0.50f, s * 0.50f);
+                g.DrawRectangle(pen, s * 0.34f, s * 0.34f, s * 0.52f, s * 0.52f);
+                break;
+        }
+
+        return bmp;
+    }
+
+    public static void CenterButtons(Control root)
+    {
+        foreach (Control c in root.Controls)
+        {
+            if (c is Button b)
+            {
+                b.TextAlign = ContentAlignment.MiddleCenter;
+                if (b.Image != null)
+                {
+                    b.ImageAlign        = ContentAlignment.MiddleCenter;
+                    b.TextImageRelation = TextImageRelation.ImageBeforeText;
+                }
+            }
+
+            if (c.HasChildren) CenterButtons(c);
+        }
+    }
+
+    public static void SetIcon(Button btn, Glyph glyph, int size = 16)
+    {
+        var painted = Color.Empty;
+
+        btn.Image             = Icon(glyph, btn.ForeColor, size);
+        painted               = btn.ForeColor;
+        btn.ImageAlign        = ContentAlignment.MiddleCenter;
+        btn.TextAlign         = ContentAlignment.MiddleCenter;
+        btn.TextImageRelation = TextImageRelation.ImageBeforeText;
+
+        btn.Paint += (_, _) =>
+        {
+            if (btn.ForeColor == painted) return;
+            painted = btn.ForeColor;
+            var old = btn.Image;
+            btn.Image = Icon(glyph, painted, size);
+            old?.Dispose();
+        };
+    }
+
     public static Bitmap CreateChatBubbleIcon(Color color, int size = 16)
     {
         var bmp = new Bitmap(size, size);

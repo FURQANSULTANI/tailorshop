@@ -10,191 +10,267 @@ partial class CustomerForm
         base.Dispose(disposing);
     }
 
-    private void InitializeComponent()
-    {
-        this.panelHeader = new Panel();
-        this.lblHeader   = new Label();
-        this.tabControl  = new TabControl();
-        this.tabInfo     = new TabPage();
-        this.lblName     = new Label();
-        this.txtName     = new TextBox();
-        this.lblPhone    = new Label();
-        this.txtPhone    = new TextBox();
-        this.lblAddress  = new Label();
-        this.txtAddress  = new TextBox();
-        this.lblNotes    = new Label();
-        this.txtNotes    = new TextBox();
-        this.panelBottom = new Panel();
-        this.btnSave     = new Button();
-        this.btnCancel   = new Button();
-
-        // ── panelHeader ──────────────────────────────────────────────
-        this.panelHeader.BackColor = Theme.DarkGrey;
-        this.panelHeader.Controls.Add(this.lblHeader);
-        this.panelHeader.Dock     = DockStyle.Top;
-        this.panelHeader.Name     = "panelHeader";
-        this.panelHeader.Size     = new Size(720, 56);
-
-        this.lblHeader.AutoSize  = true;
-        this.lblHeader.Font      = new Font("Segoe UI", 14f, FontStyle.Bold);
-        this.lblHeader.ForeColor = Theme.TextOnDark;
-        this.lblHeader.Location  = new Point(20, 15);
-        this.lblHeader.Name      = "lblHeader";
-        this.lblHeader.Text      = "✂  Customer";
-
-        // ── tabControl ───────────────────────────────────────────────
-        this.tabControl.Dock     = DockStyle.Fill;
-        this.tabControl.Font     = new Font("Segoe UI", 10f);
-        this.tabControl.Name     = "tabControl";
-        this.tabControl.TabIndex = 0;
-        this.tabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
-        this.tabControl.Controls.Add(this.tabInfo);
-        // Measurement tabs are added dynamically in code
-
-        // ── tabInfo ──────────────────────────────────────────────────
-        this.tabInfo.BackColor = Theme.NormalGrey;
-        this.tabInfo.Name      = "tabInfo";
-        this.tabInfo.Padding   = new Padding(15);
-        this.tabInfo.Text      = "Customer Info";
-        this.tabInfo.Controls.Add(this.lblName);
-        this.tabInfo.Controls.Add(this.txtName);
-        this.tabInfo.Controls.Add(this.lblPhone);
-        this.tabInfo.Controls.Add(this.txtPhone);
-        this.tabInfo.Controls.Add(this.lblAddress);
-        this.tabInfo.Controls.Add(this.txtAddress);
-        this.tabInfo.Controls.Add(this.lblNotes);
-        this.tabInfo.Controls.Add(this.txtNotes);
-
+    private void InitializeComponent() {
+        panelHeader = new Panel();
+        lblHeader = new Label();
+        tabControl = new TabControl();
+        tabInfo = new TabPage();
+        lblSerial = new Label();
+        txtSerial = new TextBox();
+        lblName = new Label();
+        txtName = new TextBox();
+        lblPhone = new Label();
+        txtPhone = new TextBox();
+        lblAddress = new Label();
+        txtAddress = new TextBox();
+        lblNotes = new Label();
+        txtNotes = new TextBox();
+        panelBottom = new Panel();
+        btnSave = new Button();
+        btnCancel = new Button();
+        panelHeader.SuspendLayout();
+        tabControl.SuspendLayout();
+        tabInfo.SuspendLayout();
+        panelBottom.SuspendLayout();
+        SuspendLayout();
+        // 
+        // panelHeader
+        // 
+        panelHeader.BackColor = Theme.DarkGrey;
+        panelHeader.Controls.Add(lblHeader);
+        panelHeader.Dock = DockStyle.Top;
+        panelHeader.Location = new Point(0, 0);
+        panelHeader.Name = "panelHeader";
+        panelHeader.Size = new Size(1020, 56);
+        panelHeader.TabIndex = 2;
+        //
+        // lblHeader
+        //
+        lblHeader.AutoSize = true;
+        lblHeader.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
+        lblHeader.ForeColor = Theme.TextOnDark;
+        lblHeader.Location = new Point(20, 15);
+        lblHeader.Name = "lblHeader";
+        lblHeader.Size = new Size(172, 32);
+        lblHeader.TabIndex = 0;
+        lblHeader.Text = "✂  Customer";
+        // 
+        // tabControl
+        // 
+        tabControl.Controls.Add(tabInfo);
+        tabControl.Dock = DockStyle.Fill;
+        tabControl.DrawMode = TabDrawMode.OwnerDrawFixed;
+        tabControl.Font = new Font("Segoe UI", 10F);
+        tabControl.Location = new Point(0, 56);
+        tabControl.Name = "tabControl";
+        tabControl.SelectedIndex = 0;
+        tabControl.Size = new Size(1020, 648);
+        tabControl.TabIndex = 0;
+        // 
+        // tabInfo
+        // 
+        tabInfo.BackColor = Theme.NormalGrey;
+        tabInfo.Controls.Add(lblSerial);
+        tabInfo.Controls.Add(txtSerial);
+        tabInfo.Controls.Add(lblName);
+        tabInfo.Controls.Add(txtName);
+        tabInfo.Controls.Add(lblPhone);
+        tabInfo.Controls.Add(txtPhone);
+        tabInfo.Controls.Add(lblAddress);
+        tabInfo.Controls.Add(txtAddress);
+        tabInfo.Controls.Add(lblNotes);
+        tabInfo.Controls.Add(txtNotes);
+        tabInfo.Location = new Point(4, 32);
+        tabInfo.Name = "tabInfo";
+        tabInfo.Padding = new Padding(15);
+        tabInfo.Size = new Size(1012, 612);
+        tabInfo.TabIndex = 0;
+        tabInfo.Text = "Customer Info";
+        // 
+        // lblSerial
+        // 
+        lblSerial.AutoSize = true;
+        lblSerial.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        lblSerial.ForeColor = Theme.TextInk;
+        lblSerial.Location = new Point(20, 20);
+        lblSerial.Name = "lblSerial";
+        lblSerial.Size = new Size(120, 21);
+        lblSerial.TabIndex = 0;
+        lblSerial.Text = "Serial Number";
+        // 
+        // txtSerial
+        // 
+        txtSerial.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        txtSerial.BackColor = Theme.NormalGrey;
+        txtSerial.BorderStyle = BorderStyle.FixedSingle;
+        txtSerial.Font = new Font("Segoe UI", 10F);
+        txtSerial.ForeColor = Theme.TextInk;
+        txtSerial.Location = new Point(20, 42);
+        txtSerial.Name = "txtSerial";
+        txtSerial.Size = new Size(974, 30);
+        txtSerial.TabIndex = 0;
+        // 
         // lblName
-        this.lblName.AutoSize  = true;
-        this.lblName.Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-        this.lblName.ForeColor = Theme.TextOnNormal;
-        this.lblName.Location  = new Point(20, 20);
-        this.lblName.Name      = "lblName";
-        this.lblName.Text      = "Customer Name *";
-
+        // 
+        lblName.AutoSize = true;
+        lblName.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        lblName.ForeColor = Theme.TextInk;
+        lblName.Location = new Point(20, 82);
+        lblName.Name = "lblName";
+        lblName.Size = new Size(144, 21);
+        lblName.TabIndex = 1;
+        lblName.Text = "Customer Name *";
+        // 
         // txtName
-        this.txtName.BackColor   = Theme.NormalGrey;
-        this.txtName.ForeColor   = Theme.TextOnNormal;
-        this.txtName.BorderStyle = BorderStyle.FixedSingle;
-        this.txtName.Font        = new Font("Segoe UI", 10f);
-        this.txtName.Location    = new Point(20, 42);
-        this.txtName.Name        = "txtName";
-        this.txtName.Size        = new Size(635, 26);
-        this.txtName.Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        this.txtName.TabIndex    = 0;
-
+        // 
+        txtName.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        txtName.BackColor = Theme.NormalGrey;
+        txtName.BorderStyle = BorderStyle.FixedSingle;
+        txtName.Font = new Font("Segoe UI", 10F);
+        txtName.ForeColor = Theme.TextInk;
+        txtName.Location = new Point(20, 104);
+        txtName.Name = "txtName";
+        txtName.Size = new Size(974, 30);
+        txtName.TabIndex = 1;
+        // 
         // lblPhone
-        this.lblPhone.AutoSize = true;
-        this.lblPhone.Font     = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-        this.lblPhone.ForeColor = Theme.TextOnNormal;
-        this.lblPhone.Location = new Point(20, 82);
-        this.lblPhone.Name     = "lblPhone";
-        this.lblPhone.Text     = "Phone Number";
-
+        // 
+        lblPhone.AutoSize = true;
+        lblPhone.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        lblPhone.ForeColor = Theme.TextInk;
+        lblPhone.Location = new Point(20, 144);
+        lblPhone.Name = "lblPhone";
+        lblPhone.Size = new Size(126, 21);
+        lblPhone.TabIndex = 2;
+        lblPhone.Text = "Phone Number";
+        // 
         // txtPhone
-        this.txtPhone.BackColor   = Theme.NormalGrey;
-        this.txtPhone.ForeColor   = Theme.TextOnNormal;
-        this.txtPhone.BorderStyle = BorderStyle.FixedSingle;
-        this.txtPhone.Font        = new Font("Segoe UI", 10f);
-        this.txtPhone.Location    = new Point(20, 104);
-        this.txtPhone.Name        = "txtPhone";
-        this.txtPhone.Size        = new Size(635, 26);
-        this.txtPhone.Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        this.txtPhone.TabIndex    = 1;
-
+        // 
+        txtPhone.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        txtPhone.BackColor = Theme.NormalGrey;
+        txtPhone.BorderStyle = BorderStyle.FixedSingle;
+        txtPhone.Font = new Font("Segoe UI", 10F);
+        txtPhone.ForeColor = Theme.TextInk;
+        txtPhone.Location = new Point(20, 166);
+        txtPhone.Name = "txtPhone";
+        txtPhone.Size = new Size(974, 30);
+        txtPhone.TabIndex = 2;
+        // 
         // lblAddress
-        this.lblAddress.AutoSize = true;
-        this.lblAddress.Font     = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-        this.lblAddress.ForeColor = Theme.TextOnNormal;
-        this.lblAddress.Location = new Point(20, 144);
-        this.lblAddress.Name     = "lblAddress";
-        this.lblAddress.Text     = "Address";
-
+        // 
+        lblAddress.AutoSize = true;
+        lblAddress.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        lblAddress.ForeColor = Theme.TextInk;
+        lblAddress.Location = new Point(20, 206);
+        lblAddress.Name = "lblAddress";
+        lblAddress.Size = new Size(70, 21);
+        lblAddress.TabIndex = 3;
+        lblAddress.Text = "Address";
+        // 
         // txtAddress
-        this.txtAddress.BackColor   = Theme.NormalGrey;
-        this.txtAddress.ForeColor   = Theme.TextOnNormal;
-        this.txtAddress.BorderStyle = BorderStyle.FixedSingle;
-        this.txtAddress.Font        = new Font("Segoe UI", 10f);
-        this.txtAddress.Location    = new Point(20, 166);
-        this.txtAddress.Name        = "txtAddress";
-        this.txtAddress.Size        = new Size(635, 26);
-        this.txtAddress.Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        this.txtAddress.TabIndex    = 2;
-
+        // 
+        txtAddress.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        txtAddress.BackColor = Theme.NormalGrey;
+        txtAddress.BorderStyle = BorderStyle.FixedSingle;
+        txtAddress.Font = new Font("Segoe UI", 10F);
+        txtAddress.ForeColor = Theme.TextInk;
+        txtAddress.Location = new Point(20, 228);
+        txtAddress.Name = "txtAddress";
+        txtAddress.Size = new Size(974, 30);
+        txtAddress.TabIndex = 3;
+        // 
         // lblNotes
-        this.lblNotes.AutoSize = true;
-        this.lblNotes.Font     = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-        this.lblNotes.ForeColor = Theme.TextOnNormal;
-        this.lblNotes.Location = new Point(20, 206);
-        this.lblNotes.Name     = "lblNotes";
-        this.lblNotes.Text     = "Notes";
-
+        // 
+        lblNotes.AutoSize = true;
+        lblNotes.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        lblNotes.ForeColor = Theme.TextInk;
+        lblNotes.Location = new Point(20, 268);
+        lblNotes.Name = "lblNotes";
+        lblNotes.Size = new Size(55, 21);
+        lblNotes.TabIndex = 4;
+        lblNotes.Text = "Notes";
+        // 
         // txtNotes
-        this.txtNotes.BackColor    = Theme.NormalGrey;
-        this.txtNotes.ForeColor    = Theme.TextOnNormal;
-        this.txtNotes.BorderStyle  = BorderStyle.FixedSingle;
-        this.txtNotes.Font         = new Font("Segoe UI", 9.5f);
-        this.txtNotes.Location     = new Point(20, 228);
-        this.txtNotes.Multiline    = true;
-        this.txtNotes.Name         = "txtNotes";
-        this.txtNotes.ScrollBars   = ScrollBars.Vertical;
-        this.txtNotes.Size         = new Size(635, 85);
-        this.txtNotes.Anchor       = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        this.txtNotes.TabIndex     = 3;
-
-        // ── panelBottom ──────────────────────────────────────────────
-        this.panelBottom.BackColor = Theme.DarkGrey;
-        this.panelBottom.Controls.Add(this.btnSave);
-        this.panelBottom.Controls.Add(this.btnCancel);
-        this.panelBottom.Dock     = DockStyle.Bottom;
-        this.panelBottom.Name     = "panelBottom";
-        this.panelBottom.Size     = new Size(720, 56);
-
+        // 
+        txtNotes.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        txtNotes.BackColor = Theme.NormalGrey;
+        txtNotes.BorderStyle = BorderStyle.FixedSingle;
+        txtNotes.Font = new Font("Segoe UI", 9.5F);
+        txtNotes.ForeColor = Theme.TextInk;
+        txtNotes.Location = new Point(20, 292);
+        txtNotes.Multiline = true;
+        txtNotes.Name = "txtNotes";
+        txtNotes.ScrollBars = ScrollBars.Vertical;
+        txtNotes.Size = new Size(974, 302);
+        txtNotes.TabIndex = 4;
+        // 
+        // panelBottom
+        // 
+        panelBottom.BackColor = Theme.DarkGrey;
+        panelBottom.Controls.Add(btnSave);
+        panelBottom.Controls.Add(btnCancel);
+        panelBottom.Dock = DockStyle.Bottom;
+        panelBottom.Location = new Point(0, 704);
+        panelBottom.Name = "panelBottom";
+        panelBottom.Size = new Size(1020, 56);
+        panelBottom.TabIndex = 1;
+        // 
         // btnSave
-        this.btnSave.BackColor = Theme.DarkGold;
-        this.btnSave.FlatStyle = FlatStyle.Flat;
-        this.btnSave.Font      = new Font("Segoe UI", 10f, FontStyle.Bold);
-        this.btnSave.ForeColor = Theme.TextOnGold;
-        this.btnSave.Location  = new Point(16, 11);
-        this.btnSave.Name      = "btnSave";
-        this.btnSave.Size      = new Size(155, 34);
-        this.btnSave.TabIndex  = 0;
-        this.btnSave.Text      = "Save Customer";
-        this.btnSave.UseVisualStyleBackColor = false;
-        this.btnSave.Cursor    = Cursors.Hand;
-        this.btnSave.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
-
+        // 
+        btnSave.BackColor = Theme.DarkGrey;
+        btnSave.Cursor = Cursors.Hand;
+        btnSave.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnSave.FlatAppearance.BorderSize = 2;
+        btnSave.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
+        btnSave.FlatStyle = FlatStyle.Flat;
+        btnSave.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+        btnSave.ForeColor = Theme.TextOnDark;
+        btnSave.Location = new Point(16, 11);
+        btnSave.Name = "btnSave";
+        btnSave.Size = new Size(155, 34);
+        btnSave.TabIndex = 0;
+        btnSave.Text = "Save Customer";
+        btnSave.UseVisualStyleBackColor = false;
+        // 
         // btnCancel
-        this.btnCancel.BackColor    = Theme.NormalGrey;
-        this.btnCancel.DialogResult = DialogResult.Cancel;
-        this.btnCancel.FlatStyle    = FlatStyle.Flat;
-        this.btnCancel.Font         = new Font("Segoe UI", 10f);
-        this.btnCancel.ForeColor    = Theme.TextOnNormal;
-        this.btnCancel.Location     = new Point(180, 11);
-        this.btnCancel.Name         = "btnCancel";
-        this.btnCancel.Size         = new Size(90, 34);
-        this.btnCancel.TabIndex     = 1;
-        this.btnCancel.Text         = "Cancel";
-        this.btnCancel.UseVisualStyleBackColor = false;
-        this.btnCancel.Cursor       = Cursors.Hand;
-        this.btnCancel.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
-
-        // ── Form ─────────────────────────────────────────────────────
-        this.AutoScaleDimensions = new SizeF(7f, 15f);
-        this.AutoScaleMode       = AutoScaleMode.Font;
-        this.BackColor           = Theme.NormalGrey;
-        this.CancelButton        = this.btnCancel;
-        this.ClientSize          = new Size(1020, 760);
-        this.Controls.Add(this.tabControl);
-        this.Controls.Add(this.panelBottom);
-        this.Controls.Add(this.panelHeader);
-        this.Font                = new Font("Segoe UI", 9.5f);
-        this.FormBorderStyle     = FormBorderStyle.Sizable;
-        this.MaximizeBox         = true;
-        this.MinimumSize         = new Size(800, 600);
-        this.Name                = "CustomerForm";
-        this.StartPosition       = FormStartPosition.CenterParent;
+        // 
+        btnCancel.BackColor = Theme.NormalGrey;
+        btnCancel.Cursor = Cursors.Hand;
+        btnCancel.DialogResult = DialogResult.Cancel;
+        btnCancel.FlatAppearance.BorderColor = Theme.DarkGold;
+        btnCancel.FlatAppearance.BorderSize = 2;
+        btnCancel.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
+        btnCancel.FlatStyle = FlatStyle.Flat;
+        btnCancel.Font = new Font("Segoe UI", 10F);
+        btnCancel.ForeColor = Theme.TextInk;
+        btnCancel.Location = new Point(180, 11);
+        btnCancel.Name = "btnCancel";
+        btnCancel.Size = new Size(90, 34);
+        btnCancel.TabIndex = 1;
+        btnCancel.Text = "Cancel";
+        btnCancel.UseVisualStyleBackColor = false;
+        // 
+        // CustomerForm
+        // 
+        AutoScaleDimensions = new SizeF(9F, 21F);
+        AutoScaleMode = AutoScaleMode.Font;
+        BackColor = Theme.NormalGrey;
+        CancelButton = btnCancel;
+        ClientSize = new Size(1020, 760);
+        Controls.Add(tabControl);
+        Controls.Add(panelBottom);
+        Controls.Add(panelHeader);
+        Font = new Font("Segoe UI", 9.5F);
+        MinimumSize = new Size(800, 600);
+        Name = "CustomerForm";
+        StartPosition = FormStartPosition.CenterParent;
+        panelHeader.ResumeLayout(false);
+        panelHeader.PerformLayout();
+        tabControl.ResumeLayout(false);
+        tabInfo.ResumeLayout(false);
+        tabInfo.PerformLayout();
+        panelBottom.ResumeLayout(false);
+        ResumeLayout(false);
     }
 
     // ── Designer Fields ──────────────────────────────────────────────
@@ -202,6 +278,8 @@ partial class CustomerForm
     private Label    lblHeader   = null!;
     private TabControl tabControl= null!;
     private TabPage  tabInfo     = null!;
+    private Label    lblSerial   = null!;
+    private TextBox  txtSerial   = null!;
     private Label    lblName     = null!;
     private TextBox  txtName     = null!;
     private Label    lblPhone    = null!;

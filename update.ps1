@@ -5,16 +5,16 @@ $dataFolder = Join-Path $env:ProgramData "TailorShop"
 $dbFile     = Join-Path $dataFolder "golden_tailor.db"
 
 Write-Host ""
-Write-Host "TailorShop Update" -ForegroundColor Cyan
+Write-Host "National Tailor Update" -ForegroundColor Cyan
 Write-Host "=================" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "Where is TailorShop currently installed?"
-Write-Host "(the folder that contains the existing TailorShop.exe)"
+Write-Host "Where is National Tailor currently installed?"
+Write-Host "(the folder that contains the existing NationalTailor.exe)"
 $target = (Read-Host "Path").Trim('"').Trim()
 
-if (-not (Test-Path (Join-Path $target "TailorShop.exe"))) {
-    Write-Host "TailorShop.exe not found in that folder. Nothing was changed." -ForegroundColor Red
+if (-not (Test-Path (Join-Path $target "NationalTailor.exe"))) {
+    Write-Host "NationalTailor.exe not found in that folder. Nothing was changed." -ForegroundColor Red
     Read-Host "Press Enter to exit"
     exit 1
 }
@@ -25,7 +25,7 @@ if ((Resolve-Path $target).Path -eq (Resolve-Path $newVersion).Path) {
     exit 1
 }
 
-Get-Process TailorShop -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process NationalTailor -ErrorAction SilentlyContinue | Stop-Process -Force
 Get-Process node -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -like "$target*" } | Stop-Process -Force
 Start-Sleep -Seconds 2

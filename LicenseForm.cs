@@ -29,7 +29,7 @@ public class LicenseForm : Form
 
         header.Controls.Add(new Label
         {
-            Text      = "TailorShop Activation",
+            Text      = "National Tailor Activation",
             ForeColor = Theme.TextOnDark,
             Font      = new Font("Segoe UI", 15f, FontStyle.Bold),
             AutoSize  = true,
@@ -81,6 +81,7 @@ public class LicenseForm : Form
         Controls.Add(_txtMachineId);
 
         var btnCopy = MakeButton("Copy", Theme.DarkGold, Theme.TextOnGold, new Point(424, 165), new Size(110, 32));
+        Theme.SetIcon(btnCopy, Theme.Glyph.Copy);
         btnCopy.Click += (_, _) =>
         {
             Clipboard.SetText(info.MachineId);
@@ -110,15 +111,18 @@ public class LicenseForm : Form
         Controls.Add(_txtKey);
 
         var btnActivate = MakeButton("Activate", Theme.DarkGrey, Theme.TextOnDark, new Point(24, 348), new Size(170, 40));
+        Theme.SetIcon(btnActivate, Theme.Glyph.Key);
         btnActivate.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
         btnActivate.Click += BtnActivate_Click;
         Controls.Add(btnActivate);
 
         var btnExit = MakeButton("Exit", Theme.DeleteAccent, Theme.TextOnDeleteAccent, new Point(206, 348), new Size(120, 40));
+        Theme.SetIcon(btnExit, Theme.Glyph.Close);
         btnExit.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
         Controls.Add(btnExit);
 
         AcceptButton = btnActivate;
+        Shown += (_, _) => Theme.CenterButtons(this);
     }
 
     private void BtnActivate_Click(object? sender, EventArgs e)

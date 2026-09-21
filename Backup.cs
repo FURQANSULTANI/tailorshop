@@ -14,7 +14,8 @@ public static class Backup
     private const int KeepCount    = 20;
     private const int IntervalDays = 7;
 
-    private static string StampFile => Path.Combine(AppPaths.DataFolder, "last-backup.txt");
+    private static string StampFile      => Path.Combine(AppPaths.DataFolder, "last-backup.txt");
+    private static string EmailStampFile => Path.Combine(AppPaths.DataFolder, "last-backup-email.txt");
 
     public static BackupResult Create(string? destinationFolder = null)
     {
@@ -61,7 +62,24 @@ public static class Backup
                 (DateTime.Now - last).TotalDays < IntervalDays)
                 return;
 
-            Create();
+            var result = Create();
+            if (result.Success) EmailIfConfigured();
+        }
+        catch
+        {
+        }
+    }
+
+    private static void EmailIfConfigured()
+    {
+        try
+        {
+            var settings = EmailSettings.Load();
+            if (!settings.IsConfigured) return;
+
+            var sent = EmailBackup.Send(settings);
+            File.WriteAllText(EmailStampFile,
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\t{(sent.Success ? "sent" : "failed: " + sent.Error)}");
         }
         catch
         {
@@ -83,6 +101,26 @@ public static class Backup
         return null;
     }
 
+    public static string? LastEmailStatus()
+    {
+        try
+        {
+            if (!File.Exists(EmailStampFile)) return null;
+
+            var parts = File.ReadAllText(EmailStampFile).Split('\t');
+            if (parts.Length < 2 || !DateTime.TryParse(parts[0].Trim(), out var when)) return null;
+
+            var outcome = parts[1].Trim();
+            return outcome == "sent"
+                ? $"Last auto-email: {when:dd MMM yyyy, hh:mm tt}"
+                : $"Last auto-email failed ({when:dd MMM yyyy}): {outcome[(outcome.IndexOf(':') + 1)..].Trim()}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static bool Restore(string backupFile, out string error)
     {
         error = "";
@@ -95,7 +133,7 @@ public static class Backup
                 cmd.CommandText = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='Customers'";
                 if (Convert.ToInt64(cmd.ExecuteScalar()) == 0)
                 {
-                    error = "The selected file is not a TailorShop database.";
+                    error = "The selected file is not a National Tailor database.";
                     return false;
                 }
             }

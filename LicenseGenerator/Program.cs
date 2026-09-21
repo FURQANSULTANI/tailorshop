@@ -9,7 +9,7 @@ static class Program
 
     static void Main()
     {
-        Console.WriteLine("TailorShop License Generator");
+        Console.WriteLine("National Tailor License Generator");
         Console.WriteLine("============================");
         Console.WriteLine();
 
