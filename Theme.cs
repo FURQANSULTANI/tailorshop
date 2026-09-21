@@ -19,6 +19,9 @@ public static class Theme
     public static readonly Color TextOnGold   = TextOnWhite;
     public static readonly Color TextOnDeleteAccent = TextOnWhite;
 
+    // Matches the deep blue of the National Tailor logo artwork.
+    public static readonly Color BrandBlue   = Color.FromArgb(0x0A, 0x28, 0x96);
+
     public static readonly Color AlertRed    = Color.FromArgb(253, 28, 3);
     public static readonly Color AlertOrange = Color.FromArgb(248, 128, 23);
     public static readonly Color TextOnAlert = Color.White;
@@ -38,7 +41,9 @@ public static class Theme
             ? DeleteAccent
             : ControlPaint.Light(baseColor, 0.25f);
 
-    public static Bitmap ToWhiteSilhouette(Image source)
+    public static Bitmap ToWhiteSilhouette(Image source) => ToSilhouette(source, Color.White);
+
+    public static Bitmap ToSilhouette(Image source, Color tint)
     {
         var bmp = new Bitmap(source.Width, source.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var g = Graphics.FromImage(bmp)) g.DrawImage(source, 0, 0, source.Width, source.Height);
@@ -49,7 +54,7 @@ public static class Theme
                 var p = bmp.GetPixel(x, y);
                 var luma = (int)(0.299 * p.R + 0.587 * p.G + 0.114 * p.B);
                 var alpha = Math.Clamp((luma - 24) * 255 / 200, 0, 255);
-                bmp.SetPixel(x, y, Color.FromArgb(alpha, 255, 255, 255));
+                bmp.SetPixel(x, y, Color.FromArgb(alpha, tint.R, tint.G, tint.B));
             }
 
         return bmp;

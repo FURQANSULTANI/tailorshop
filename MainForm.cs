@@ -49,6 +49,7 @@ public partial class MainForm : Form {
             Theme.ApplyLightHover(btn);
 
         WrapWithBorder(txtSearch, Theme.DarkGold);
+        BuildAppLogo();
         BuildHeaderBrand();
 
         panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
@@ -174,6 +175,28 @@ public partial class MainForm : Form {
         }
     }
 
+    private void BuildAppLogo() {
+        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "NationalTailor_Logo.png");
+        if (!File.Exists(logoPath)) return;
+
+        try {
+            using var fs = new FileStream(logoPath, FileMode.Open, FileAccess.Read);
+            var logo = Image.FromStream(fs);
+
+            lblTitle.Visible = false;
+            lblSubtitle.Visible = false;
+
+            panelHeader.Controls.Add(new PictureBox {
+                Image = new Bitmap(logo),
+                SizeMode = PictureBoxSizeMode.Zoom,
+                BackColor = Color.Transparent,
+                Location = new Point(20, 4),
+                Size = new Size(260, 72)
+            });
+        }
+        catch { }
+    }
+
     private void BuildHeaderBrand() {
         var brand = new Panel {
             Size = new Size(190, 72),
@@ -188,7 +211,7 @@ public partial class MainForm : Form {
                 using var raw = Image.FromStream(fs);
                 using var trimmed = Theme.TrimUniformMargins(raw);
                 brand.Controls.Add(new PictureBox {
-                    Image = Theme.ToWhiteSilhouette(trimmed),
+                    Image = Theme.ToSilhouette(trimmed, Theme.BrandBlue),
                     SizeMode = PictureBoxSizeMode.Zoom,
                     BackColor = Color.Transparent,
                     Location = new Point(0, 0),
@@ -201,7 +224,7 @@ public partial class MainForm : Form {
         brand.Controls.Add(new Label {
             Text = "The Koder Bench",
             Font = new Font("Segoe UI", 11f, FontStyle.Bold),
-            ForeColor = Color.White,
+            ForeColor = Theme.BrandBlue,
             BackColor = Color.Transparent,
             TextAlign = ContentAlignment.MiddleCenter,
             Location = new Point(0, 36),
@@ -211,7 +234,7 @@ public partial class MainForm : Form {
         brand.Controls.Add(new Label {
             Text = "BUILD  ·  TRUST  ·  SOLVE",
             Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
-            ForeColor = Color.White,
+            ForeColor = Theme.BrandBlue,
             BackColor = Color.Transparent,
             TextAlign = ContentAlignment.MiddleCenter,
             Location = new Point(0, 56),
@@ -351,9 +374,9 @@ public partial class MainForm : Form {
 
             if (r.Baaqaya > 0) {
                 var daysOld = (DateTime.Now.Date - r.OrderDate.Date).Days;
-                if (daysOld >= 2)
+                if (daysOld >= 30)
                     SetRowAlertColor(grid.Rows[idx], Theme.AlertRed);
-                else if (daysOld >= 1)
+                else if (daysOld >= 20)
                     SetRowAlertColor(grid.Rows[idx], Theme.AlertOrange);
             }
         }

@@ -1037,10 +1037,19 @@ public partial class CustomerForm : Form {
         using var labelFormat = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
         using var valueFormat = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
 
-        g.DrawString("National Tailor", shopFont, darkBrush, new RectangleF(x, y, pageW, 22f), centerFormat);
-        y += shopFont.GetHeight(g) + 1;
-        g.DrawString("Professional Tailoring Services", subFont, darkBrush, new RectangleF(x, y, pageW, 14f), centerFormat);
-        y += subFont.GetHeight(g) + 6;
+        var logo = ShopLogo;
+        if (logo != null) {
+            const float logoHeight = 34f;
+            var logoWidth = Math.Min(pageW, logo.Width * logoHeight / logo.Height);
+            g.DrawImage(logo, x + (pageW - logoWidth) / 2f, y, logoWidth, logoHeight);
+            y += logoHeight + 6;
+        }
+        else {
+            g.DrawString("National Tailor", shopFont, darkBrush, new RectangleF(x, y, pageW, 22f), centerFormat);
+            y += shopFont.GetHeight(g) + 1;
+            g.DrawString("Professional Tailoring Services", subFont, darkBrush, new RectangleF(x, y, pageW, 14f), centerFormat);
+            y += subFont.GetHeight(g) + 6;
+        }
 
         using var rulePen = new Pen(Color.Black, 1f);
         g.DrawLine(rulePen, x, y, x + pageW, y);
@@ -1103,6 +1112,25 @@ public partial class CustomerForm : Form {
         DrawBrandingFooter(g, x, pageW, y, centerFormat);
 
         e.HasMorePages = false;
+    }
+
+    private static Image? _shopLogo;
+    private static bool _shopLogoLoaded;
+
+    private static Image? ShopLogo {
+        get {
+            if (_shopLogoLoaded) return _shopLogo;
+            _shopLogoLoaded = true;
+            try {
+                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "NationalTailor_Logo.png");
+                if (File.Exists(path)) {
+                    using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
+                    _shopLogo = new Bitmap(Image.FromStream(fs));
+                }
+            }
+            catch { }
+            return _shopLogo;
+        }
     }
 
     private static readonly Regex FractionPattern =
