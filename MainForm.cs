@@ -50,6 +50,7 @@ public partial class MainForm : Form {
 
         WrapWithBorder(txtSearch, Theme.DarkGold);
         BuildAppLogo();
+        BuildAppTitle();
         BuildHeaderBrand();
 
         panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
@@ -197,9 +198,29 @@ public partial class MainForm : Form {
         catch { }
     }
 
+    private void BuildAppTitle() {
+        var title = new Label {
+            Text = "Tailor Shop",
+            Font = new Font("Segoe UI", 26f, FontStyle.Bold),
+            ForeColor = Theme.DarkGold,
+            BackColor = Color.Transparent,
+            TextAlign = ContentAlignment.MiddleCenter,
+            AutoSize = false,
+            Size = new Size(320, 62),
+            Location = new Point(0, 6)
+        };
+
+        panelHeader.Controls.Add(title);
+        title.BringToFront();
+
+        void PositionTitle() => title.Left = (panelHeader.ClientSize.Width - title.Width) / 2;
+        PositionTitle();
+        panelHeader.Resize += (_, _) => PositionTitle();
+    }
+
     private void BuildHeaderBrand() {
         var brand = new Panel {
-            Size = new Size(190, 72),
+            Size = new Size(238, 72),
             Location = new Point(0, 4),
             BackColor = Color.Transparent
         };
@@ -211,11 +232,11 @@ public partial class MainForm : Form {
                 using var raw = Image.FromStream(fs);
                 using var trimmed = Theme.TrimUniformMargins(raw);
                 brand.Controls.Add(new PictureBox {
-                    Image = Theme.ToSilhouette(trimmed, Theme.BrandBlue),
+                    Image = Theme.ToSilhouette(trimmed, Theme.DarkGold),
                     SizeMode = PictureBoxSizeMode.Zoom,
                     BackColor = Color.Transparent,
-                    Location = new Point(0, 0),
-                    Size = new Size(190, 34)
+                    Location = new Point(0, 8),
+                    Size = new Size(62, 56)
                 });
             }
             catch { }
@@ -224,21 +245,21 @@ public partial class MainForm : Form {
         brand.Controls.Add(new Label {
             Text = "The Koder Bench",
             Font = new Font("Segoe UI", 11f, FontStyle.Bold),
-            ForeColor = Theme.BrandBlue,
+            ForeColor = Theme.DarkGold,
             BackColor = Color.Transparent,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Location = new Point(0, 36),
-            Size = new Size(190, 20)
+            TextAlign = ContentAlignment.BottomLeft,
+            Location = new Point(64, 16),
+            Size = new Size(174, 22)
         });
 
         brand.Controls.Add(new Label {
             Text = "BUILD  ·  TRUST  ·  SOLVE",
             Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
-            ForeColor = Theme.BrandBlue,
+            ForeColor = Theme.DarkGold,
             BackColor = Color.Transparent,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Location = new Point(0, 56),
-            Size = new Size(190, 14)
+            TextAlign = ContentAlignment.TopLeft,
+            Location = new Point(64, 40),
+            Size = new Size(174, 16)
         });
 
         panelHeader.Controls.Add(brand);
@@ -390,7 +411,9 @@ public partial class MainForm : Form {
                 var suitField = posByOrder[c.LatestOrderId!.Value]
                     .FirstOrDefault(m => m.FieldName == CustomerForm.SuitStitchingFieldName);
                 if (suitField == null) return 0;
-                return int.TryParse(suitField.Quantity, out var qty) ? qty : 1;
+                if (int.TryParse(suitField.Quantity, out var qty)) return qty;
+                // A blank quantity on a row that has an amount still means one suit.
+                return string.IsNullOrWhiteSpace(suitField.Value) ? 0 : 1;
             });
 
         RefreshSummaryCards(rows.Sum(r => r.Baaqaya), unstitchedQty);

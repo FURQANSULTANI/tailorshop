@@ -6,9 +6,9 @@ public static class Theme
 {
     public static readonly Color DarkGrey   = Color.FromArgb(0x1F, 0x7A, 0x6C);
     public static readonly Color NormalGrey = Color.FromArgb(0xFB, 0xF7, 0xF0);
-    public static readonly Color DarkGold   = Color.FromArgb(0x14, 0xA3, 0xC7);
+    public static readonly Color DarkGold   = Color.FromArgb(0x89, 0xD7, 0xB7);
     public static readonly Color DeleteAccent = Color.FromArgb(0x59, 0x87, 0x80);
-    public static readonly Color RowAlt = Color.FromArgb(0x14, 0xA3, 0xC7);
+    public static readonly Color RowAlt = Color.FromArgb(0x89, 0xD7, 0xB7);
     public static readonly Color TextOnRowAlt = Color.White;
 
     public static readonly Color TextInk = Color.FromArgb(0x2B, 0x2B, 0x2B);

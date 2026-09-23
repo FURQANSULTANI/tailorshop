@@ -377,10 +377,10 @@ public class Database
 
     public static long SaveOrder(Order o) => SaveOrder(o, null, "", false);
 
-    public static long SaveOrder(Order o, StockSelection? stock, string customerName)
+    public static long SaveOrder(Order o, List<StockSelection>? stock, string customerName)
         => SaveOrder(o, stock, customerName, true);
 
-    private static long SaveOrder(Order o, StockSelection? stock, string customerName, bool adjustStock)
+    private static long SaveOrder(Order o, List<StockSelection>? stock, string customerName, bool adjustStock)
     {
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
@@ -461,7 +461,7 @@ public class Database
         catch { tx.Rollback(); throw; }
     }
 
-    private static void ApplyStockChange(SqliteConnection conn, Order o, StockSelection? stock, string customerName)
+    private static void ApplyStockChange(SqliteConnection conn, Order o, List<StockSelection>? stock, string customerName)
     {
         var prior = conn.CreateCommand();
         prior.CommandText = "SELECT StockItemId, Qty FROM StockSales WHERE OrderId=$oid";
@@ -487,43 +487,48 @@ public class Database
         clear.Parameters.AddWithValue("$oid", o.Id);
         clear.ExecuteNonQuery();
 
-        if (stock == null || stock.StockItemId <= 0 || stock.Qty <= 0) return;
+        if (stock == null) return;
 
-        var item = conn.CreateCommand();
-        item.CommandText = "SELECT SuitType, Color, CreatedAt, UpdatedAt FROM StockItems WHERE Id=$id";
-        item.Parameters.AddWithValue("$id", stock.StockItemId);
-
-        string suitType = "", color = "";
-        object addedAt = DBNull.Value, updatedAt = DBNull.Value;
-        using (var r = item.ExecuteReader())
+        foreach (var pick in stock)
         {
-            if (!r.Read()) return;
-            suitType  = r["SuitType"].ToString()!;
-            color     = r["Color"] == DBNull.Value ? "" : r["Color"].ToString()!;
-            addedAt   = r["CreatedAt"] == DBNull.Value ? DBNull.Value : r["CreatedAt"];
-            updatedAt = r["UpdatedAt"] == DBNull.Value ? DBNull.Value : r["UpdatedAt"];
+            if (pick.StockItemId <= 0 || pick.Qty <= 0) continue;
+
+            var item = conn.CreateCommand();
+            item.CommandText = "SELECT SuitType, Color, CreatedAt, UpdatedAt FROM StockItems WHERE Id=$id";
+            item.Parameters.AddWithValue("$id", pick.StockItemId);
+
+            string suitType, color;
+            object addedAt, updatedAt;
+            using (var r = item.ExecuteReader())
+            {
+                if (!r.Read()) continue;
+                suitType  = r["SuitType"].ToString()!;
+                color     = r["Color"] == DBNull.Value ? "" : r["Color"].ToString()!;
+                addedAt   = r["CreatedAt"] == DBNull.Value ? DBNull.Value : r["CreatedAt"];
+                updatedAt = r["UpdatedAt"] == DBNull.Value ? DBNull.Value : r["UpdatedAt"];
+            }
+
+            var deduct = conn.CreateCommand();
+            deduct.CommandText = "UPDATE StockItems SET Quantity = Quantity - $q, UpdatedAt=datetime('now','localtime') WHERE Id=$id";
+            deduct.Parameters.AddWithValue("$q", pick.Qty);
+            deduct.Parameters.AddWithValue("$id", pick.StockItemId);
+            deduct.ExecuteNonQuery();
+
+            var log = conn.CreateCommand();
+            log.CommandText = @"INSERT INTO StockSales(StockItemId,OrderId,CustomerId,CustomerName,SuitType,Color,Qty,UnitPrice,ItemAddedAt,ItemUpdatedAt)
+                VALUES($sid,$oid,$cid,$cname,$type,$color,$qty,$price,$added,$updated)";
+            log.Parameters.AddWithValue("$sid", pick.StockItemId);
+            log.Parameters.AddWithValue("$oid", o.Id);
+            log.Parameters.AddWithValue("$cid", o.CustomerId);
+            log.Parameters.AddWithValue("$cname", customerName);
+            log.Parameters.AddWithValue("$type", suitType);
+            log.Parameters.AddWithValue("$color", color.Length == 0 ? DBNull.Value : color);
+            log.Parameters.AddWithValue("$qty", pick.Qty);
+            log.Parameters.AddWithValue("$price", pick.UnitPrice);
+            log.Parameters.AddWithValue("$added", addedAt);
+            log.Parameters.AddWithValue("$updated", updatedAt);
+            log.ExecuteNonQuery();
         }
-
-        var deduct = conn.CreateCommand();
-        deduct.CommandText = "UPDATE StockItems SET Quantity = Quantity - $q, UpdatedAt=datetime('now','localtime') WHERE Id=$id";
-        deduct.Parameters.AddWithValue("$q", stock.Qty);
-        deduct.Parameters.AddWithValue("$id", stock.StockItemId);
-        deduct.ExecuteNonQuery();
-
-        var log = conn.CreateCommand();
-        log.CommandText = @"INSERT INTO StockSales(StockItemId,OrderId,CustomerId,CustomerName,SuitType,Color,Qty,UnitPrice,ItemAddedAt,ItemUpdatedAt)
-            VALUES($sid,$oid,$cid,$cname,$type,$color,$qty,$price,$added,$updated)";
-        log.Parameters.AddWithValue("$sid", stock.StockItemId);
-        log.Parameters.AddWithValue("$oid", o.Id);
-        log.Parameters.AddWithValue("$cid", o.CustomerId);
-        log.Parameters.AddWithValue("$cname", customerName);
-        log.Parameters.AddWithValue("$type", suitType);
-        log.Parameters.AddWithValue("$color", color.Length == 0 ? DBNull.Value : color);
-        log.Parameters.AddWithValue("$qty", stock.Qty);
-        log.Parameters.AddWithValue("$price", stock.UnitPrice);
-        log.Parameters.AddWithValue("$added", addedAt);
-        log.Parameters.AddWithValue("$updated", updatedAt);
-        log.ExecuteNonQuery();
     }
 
     public static List<StockItem> GetStockItems(string search = "", bool includeEmpty = true)

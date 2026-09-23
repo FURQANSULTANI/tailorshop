@@ -9,6 +9,9 @@ public partial class CustomerForm : Form {
     private readonly bool _isNew;
     private readonly Dictionary<string, FlowLayoutPanel> _sectionPanels = new();
 
+    // Counts stock rows as they are built so each restores its own saved sale.
+    private int _stockRowsBuilt;
+
     // Print state
     private string _printSection = "";
     private List<(string Field, string Value)> _printRows = new();
@@ -208,7 +211,6 @@ public partial class CustomerForm : Form {
     private Panel AddFieldRowCore(FlowLayoutPanel panel, FieldDef def, string value, string[] selectedOptions,
         bool scrollIntoView = true, Action? onChanged = null, string? quantity = null,
         bool removable = true, object? rowTag = null, Color? accent = null) {
-        var rowAccent = accent ?? Theme.DarkGrey;
         bool showValue = def.Kind is FieldKind.Text or FieldKind.Both;
         bool showCheckboxes = def.Kind is FieldKind.Checkbox or FieldKind.Both;
 
@@ -270,9 +272,15 @@ public partial class CustomerForm : Form {
                 de.DrawFocusRectangle();
             };
 
+            // Rows for this field can repeat, so each one restores the sale at its own position.
             var priorSale = _order.Id == 0
                 ? null
-                : Database.GetStockSales().FirstOrDefault(x => x.OrderId == _order.Id);
+                : Database.GetStockSales()
+                    .Where(x => x.OrderId == _order.Id)
+                    .OrderBy(x => x.Id)
+                    .Skip(_stockRowsBuilt)
+                    .FirstOrDefault();
+            _stockRowsBuilt++;
 
             stockCombo.Items.Add(StockNonePlaceholder);
             stockCombo.SelectedIndex = 0;
@@ -484,29 +492,52 @@ public partial class CustomerForm : Form {
 
         if (removable) {
             var btnRemove = new Button {
-                Text = "✖",
-                Location = new Point(cursorX, RowFieldTop + 5),
-                Size = new Size(28, 28),
+                Location = new Point(cursorX, RowFieldTop + 4),
+                Size = new Size(30, 30),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = rowAccent,
-                ForeColor = Theme.TextOnDark,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Theme.DeleteAccent,
+                ForeColor = Theme.TextOnDeleteAccent,
                 Cursor = Cursors.Hand,
                 TabStop = false
             };
-            btnRemove.FlatAppearance.BorderSize = 1;
-            btnRemove.FlatAppearance.BorderColor = rowAccent;
-            btnRemove.FlatAppearance.MouseOverBackColor = Theme.DeleteAccent;
-            btnRemove.MouseEnter += (_, _) => btnRemove.ForeColor = Theme.TextOnDeleteAccent;
-            btnRemove.MouseLeave += (_, _) => btnRemove.ForeColor = Theme.TextOnDark;
+            btnRemove.FlatAppearance.BorderSize = 0;
+            btnRemove.FlatAppearance.MouseOverBackColor = Theme.AlertRed;
+            Theme.SetIcon(btnRemove, Theme.Glyph.Close, 13);
+            new ToolTip().SetToolTip(btnRemove, "Ye field hatayein");
+            Theme.RoundCorners(btnRemove, 15);
             btnRemove.Click += (_, _) => {
                 panel.Controls.Remove(row);
                 row.Dispose();
                 onChanged?.Invoke();
             };
-            Theme.RoundCorners(btnRemove, 4);
             row.Controls.Add(btnRemove);
             cursorX += btnRemove.Width + 12;
+        }
+
+        if (def.Name == SuitPurchaseFieldName) {
+            var btnDuplicate = new Button {
+                Location = new Point(cursorX, RowFieldTop + 4),
+                Size = new Size(30, 30),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Theme.DarkGold,
+                ForeColor = Theme.TextOnGold,
+                Cursor = Cursors.Hand,
+                TabStop = false
+            };
+            btnDuplicate.FlatAppearance.BorderSize = 0;
+            btnDuplicate.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+            Theme.SetIcon(btnDuplicate, Theme.Glyph.Add, 14);
+            new ToolTip().SetToolTip(btnDuplicate, "Aur suit add karein");
+            Theme.RoundCorners(btnDuplicate, 15);
+            btnDuplicate.Click += (_, _) => {
+                var copy = AddFieldRowCore(panel, def, "", Array.Empty<string>(),
+                    scrollIntoView: true, onChanged: onChanged, accent: accent);
+                panel.Controls.SetChildIndex(copy, panel.Controls.GetChildIndex(row) + 1);
+                RepositionPosSpecialRowsCore(panel);
+                onChanged?.Invoke();
+            };
+            row.Controls.Add(btnDuplicate);
+            cursorX += btnDuplicate.Width + 12;
         }
 
         Theme.PaintFieldBand(row, RowFieldTop, RowFieldHeight, bordered.ToArray());
@@ -654,6 +685,7 @@ public partial class CustomerForm : Form {
     }
 
     private void BuildPosFields(FlowLayoutPanel panel, string section, List<Measurement> existing, Action onChanged, Color accent) {
+        _stockRowsBuilt = 0;
         if (existing.Count > 0) {
             var defsByName = Database.DefaultFields.TryGetValue(section, out var defs)
                 ? defs.ToDictionary(d => d.Name)
@@ -1080,8 +1112,8 @@ public partial class CustomerForm : Form {
         Font FontFor(string text) =>
             text.Any(ch => ch >= 0x0600 && ch <= 0x06FF) ? Theme.UrduFontSmall : latinFont;
 
-        const float rowH = 16f;
-        const float fractionRowH = 24f;
+        const float rowH = 22f;
+        const float fractionRowH = 30f;
         float valueW = pageW * 0.38f;
         float labelW = pageW - valueW;
 
@@ -1192,11 +1224,13 @@ public partial class CustomerForm : Form {
             Trimming = StringTrimming.EllipsisCharacter
         };
 
-        var valueFont = value.Any(ch => ch >= 0x0600 && ch <= 0x06FF) ? Theme.UrduFontSmall : font;
+        var isUrdu = value.Any(ch => ch >= 0x0600 && ch <= 0x06FF);
+        var valueFont = isUrdu ? Theme.UrduFontSmall : font;
+        var rowHeight = isUrdu ? 22f : 14f;
 
         g.DrawString($"{label}:", font, gray, x, y);
-        g.DrawString(value, valueFont, dark, new RectangleF(x + 42f, y, width - 42f, 14f), valueFormat);
-        y += 13f;
+        g.DrawString(value, valueFont, dark, new RectangleF(x + 42f, y, width - 42f, rowHeight), valueFormat);
+        y += isUrdu ? 21f : 13f;
     }
 
     // ── Save ─────────────────────────────────────────────────────────────────
@@ -1258,8 +1292,8 @@ public partial class CustomerForm : Form {
             }
         }
 
-        var stock = ReadStockSelection();
-        if (stock != null && !ConfirmStockAvailability(stock)) return;
+        var stock = ReadStockSelections();
+        if (!ConfirmStockAvailability(stock)) return;
 
         Database.SaveCustomer(_customer);
         _order.CustomerId = _customer.Id;
@@ -1268,8 +1302,9 @@ public partial class CustomerForm : Form {
         Close();
     }
 
-    private StockSelection? ReadStockSelection() {
-        if (!_sectionPanels.TryGetValue("Point Of Sale", out var panel)) return null;
+    private List<StockSelection> ReadStockSelections() {
+        var picks = new List<StockSelection>();
+        if (!_sectionPanels.TryGetValue("Point Of Sale", out var panel)) return picks;
 
         foreach (Control row in panel.Controls) {
             if (row is not Panel rowPanel) continue;
@@ -1296,31 +1331,37 @@ public partial class CustomerForm : Form {
 
             decimal.TryParse(tVal?.Text.Trim(), out var price);
 
-            return new StockSelection { StockItemId = picked.Id, Qty = qty, UnitPrice = price };
+            picks.Add(new StockSelection { StockItemId = picked.Id, Qty = qty, UnitPrice = price });
         }
 
-        return null;
+        return picks;
     }
 
-    private bool ConfirmStockAvailability(StockSelection stock) {
-        var item = Database.GetStockItem(stock.StockItemId);
-        if (item == null) return true;
+    private bool ConfirmStockAvailability(List<StockSelection> stock) {
+        // Rows can repeat the same item, so availability is judged on the combined quantity.
+        foreach (var group in stock.GroupBy(s => s.StockItemId)) {
+            var item = Database.GetStockItem(group.Key);
+            if (item == null) continue;
 
-        var alreadyTaken = _order.Id == 0
-            ? 0
-            : Database.GetStockSales(stock.StockItemId).Where(x => x.OrderId == _order.Id).Sum(x => x.Qty);
+            var wanted = group.Sum(s => s.Qty);
+            var alreadyTaken = _order.Id == 0
+                ? 0
+                : Database.GetStockSales(group.Key).Where(x => x.OrderId == _order.Id).Sum(x => x.Qty);
 
-        var available = item.Quantity + alreadyTaken;
-        if (stock.Qty <= available) return true;
+            var available = item.Quantity + alreadyTaken;
+            if (wanted <= available) continue;
 
-        var label = string.IsNullOrWhiteSpace(item.Color) ? item.SuitType : $"{item.SuitType} - {item.Color}";
-        var answer = MessageBox.Show(
-            $"Only {available} item(s) of '{label}' are in stock, but {stock.Qty} are being sold." +
-            Environment.NewLine + Environment.NewLine +
-            "Save anyway? Stock will go negative.",
-            "Stock", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+            var label = string.IsNullOrWhiteSpace(item.Color) ? item.SuitType : $"{item.SuitType} - {item.Color}";
+            var answer = MessageBox.Show(
+                $"Only {available} item(s) of '{label}' are in stock, but {wanted} are being sold." +
+                Environment.NewLine + Environment.NewLine +
+                "Save anyway? Stock will go negative.",
+                "Stock", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
 
-        return answer == DialogResult.Yes;
+            if (answer != DialogResult.Yes) return false;
+        }
+
+        return true;
     }
 
 }
