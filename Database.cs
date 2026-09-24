@@ -95,10 +95,65 @@ public class Database
             );";
         ordersCmd.ExecuteNonQuery();
 
+        var stockCmd = conn.CreateCommand();
+        stockCmd.CommandText = @"
+            CREATE TABLE IF NOT EXISTS StockItems (
+                Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                SuitType      TEXT NOT NULL,
+                Color         TEXT,
+                Quantity      INTEGER NOT NULL DEFAULT 0,
+                PurchasePrice REAL NOT NULL DEFAULT 0,
+                RetailPrice   REAL NOT NULL DEFAULT 0,
+                IsDeleted     INTEGER NOT NULL DEFAULT 0,
+                CreatedAt     TEXT DEFAULT (datetime('now','localtime')),
+                UpdatedAt     TEXT DEFAULT (datetime('now','localtime'))
+            );
+
+            CREATE TABLE IF NOT EXISTS StockSales (
+                Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                StockItemId  INTEGER,
+                OrderId      INTEGER NOT NULL,
+                CustomerId   INTEGER NOT NULL,
+                CustomerName TEXT NOT NULL DEFAULT '',
+                SuitType     TEXT NOT NULL DEFAULT '',
+                Color        TEXT,
+                Qty          INTEGER NOT NULL DEFAULT 0,
+                UnitPrice    REAL NOT NULL DEFAULT 0,
+                SoldAt       TEXT DEFAULT (datetime('now','localtime')),
+                ItemAddedAt   TEXT,
+                ItemUpdatedAt TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS IX_StockSales_OrderId ON StockSales(OrderId);";
+        stockCmd.ExecuteNonQuery();
+
+        foreach (var stockAlter in new[]
+                 {
+                     "ALTER TABLE StockSales ADD COLUMN ItemAddedAt TEXT",
+                     "ALTER TABLE StockSales ADD COLUMN ItemUpdatedAt TEXT"
+                 })
+        {
+            try
+            {
+                var a = conn.CreateCommand();
+                a.CommandText = stockAlter;
+                a.ExecuteNonQuery();
+            }
+            catch (SqliteException) { /* column already exists */ }
+        }
+
         try
         {
             var alter = conn.CreateCommand();
             alter.CommandText = "ALTER TABLE Measurements ADD COLUMN OrderId INTEGER";
+            alter.ExecuteNonQuery();
+        }
+        catch (SqliteException) { /* column already exists */ }
+
+        try
+        {
+            var alter = conn.CreateCommand();
+            alter.CommandText = "ALTER TABLE Customers ADD COLUMN SerialNumber TEXT";
             alter.ExecuteNonQuery();
         }
         catch (SqliteException) { /* column already exists */ }
@@ -182,7 +237,7 @@ public class Database
         else
         {
             cmd.CommandText = $@"SELECT Customers.*, {LatestOrderColumns} FROM Customers
-                WHERE Name LIKE $s OR Phone LIKE $s ORDER BY Name";
+                WHERE Name LIKE $s OR Phone LIKE $s OR SerialNumber LIKE $s ORDER BY Name";
             cmd.Parameters.AddWithValue("$s", $"%{search}%");
         }
         using var r = cmd.ExecuteReader();
@@ -212,25 +267,42 @@ public class Database
             var cmd = conn.CreateCommand();
             if (c.Id == 0)
             {
-                cmd.CommandText = @"INSERT INTO Customers(Name,Phone,Address,Notes)
-                    VALUES($n,$p,$a,$no); SELECT last_insert_rowid();";
+                cmd.CommandText = @"INSERT INTO Customers(Name,Phone,Address,Notes,SerialNumber)
+                    VALUES($n,$p,$a,$no,$sn); SELECT last_insert_rowid();";
             }
             else
             {
                 cmd.CommandText = @"UPDATE Customers SET Name=$n,Phone=$p,Address=$a,Notes=$no,
-                    UpdatedAt=datetime('now','localtime') WHERE Id=$id; SELECT $id;";
+                    SerialNumber=$sn, UpdatedAt=datetime('now','localtime') WHERE Id=$id; SELECT $id;";
                 cmd.Parameters.AddWithValue("$id", c.Id);
             }
             cmd.Parameters.AddWithValue("$n", c.Name);
             cmd.Parameters.AddWithValue("$p", (object?)c.Phone ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$a", (object?)c.Address ?? DBNull.Value);
             cmd.Parameters.AddWithValue("$no", (object?)c.Notes ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$sn", (object?)c.SerialNumber ?? DBNull.Value);
             c.Id = Convert.ToInt64(cmd.ExecuteScalar());
 
             tx.Commit();
             return c.Id;
         }
         catch { tx.Rollback(); throw; }
+    }
+
+    public static bool SerialNumberExists(string serial, long excludeCustomerId)
+    {
+        if (string.IsNullOrWhiteSpace(serial)) return false;
+
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = @"SELECT COUNT(*) FROM Customers
+            WHERE SerialNumber IS NOT NULL
+              AND TRIM(LOWER(SerialNumber)) = TRIM(LOWER($sn))
+              AND Id <> $id";
+        cmd.Parameters.AddWithValue("$sn", serial);
+        cmd.Parameters.AddWithValue("$id", excludeCustomerId);
+        return Convert.ToInt64(cmd.ExecuteScalar()) > 0;
     }
 
     public static void DeleteCustomer(long id)
@@ -315,13 +387,47 @@ public class Database
         return o;
     }
 
-    public static long SaveOrder(Order o)
+    public static long SaveOrder(Order o) => SaveOrder(o, null, "", false);
+
+    public static long SaveOrder(Order o, List<StockSelection>? stock, string customerName)
+        => SaveOrder(o, stock, customerName, true);
+
+    private static long SaveOrder(Order o, List<StockSelection>? stock, string customerName, bool adjustStock)
     {
         using var conn = new SqliteConnection(ConnectionString);
         conn.Open();
         using var tx = conn.BeginTransaction();
         try
         {
+            if (o.Id != 0)
+            {
+                var priorCmd = conn.CreateCommand();
+                priorCmd.CommandText = "SELECT Status FROM Orders WHERE Id=$id";
+                priorCmd.Parameters.AddWithValue("$id", o.Id);
+                var priorStatus = priorCmd.ExecuteScalar()?.ToString();
+
+                var priorQtyCmd = conn.CreateCommand();
+                priorQtyCmd.CommandText = "SELECT Quantity FROM Measurements WHERE OrderId=$id AND FieldName=$fn AND Section=$sec";
+                priorQtyCmd.Parameters.AddWithValue("$id", o.Id);
+                priorQtyCmd.Parameters.AddWithValue("$fn", CustomerForm.SuitStitchingFieldName);
+                priorQtyCmd.Parameters.AddWithValue("$sec", "Point Of Sale");
+                int.TryParse(priorQtyCmd.ExecuteScalar()?.ToString(), out var priorQty);
+
+                var newQtyValue = o.Measurements
+                    .FirstOrDefault(m => m.FieldName == CustomerForm.SuitStitchingFieldName && m.Section == "Point Of Sale")
+                    ?.Quantity;
+                int.TryParse(newQtyValue, out var newQty);
+
+                if (priorStatus == OrderStatus.Ready && newQty > priorQty)
+                {
+                    o.Status = OrderStatus.Pending;
+                    var clearReady = conn.CreateCommand();
+                    clearReady.CommandText = "UPDATE Orders SET ReadyAt=NULL WHERE Id=$id";
+                    clearReady.Parameters.AddWithValue("$id", o.Id);
+                    clearReady.ExecuteNonQuery();
+                }
+            }
+
             var cmd = conn.CreateCommand();
             if (o.Id == 0)
             {
@@ -360,6 +466,8 @@ public class Database
                 ins.Parameters.AddWithValue("$qty", (object?)m.Quantity ?? DBNull.Value);
                 ins.ExecuteNonQuery();
             }
+            if (adjustStock) ApplyStockChange(conn, o, stock, customerName);
+
             tx.Commit();
             return o.Id;
         }
@@ -507,13 +615,203 @@ public class Database
             new FieldDef { Name = "Suit Purchase",  Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true, HasQuantity = true },
             new FieldDef { Name = "Advance",          Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true },
             new FieldDef { Name = "Previous Balance", Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true },
+            new FieldDef { Name = "Discount",         Kind = FieldKind.Text, ValuePlaceholder = "Amount...", UnitLabel = "Rs", Numeric = true },
         },
+    };
+
+    private static void ApplyStockChange(SqliteConnection conn, Order o, List<StockSelection>? stock, string customerName)
+    {
+        var prior = conn.CreateCommand();
+        prior.CommandText = "SELECT StockItemId, Qty FROM StockSales WHERE OrderId=$oid";
+        prior.Parameters.AddWithValue("$oid", o.Id);
+
+        var restore = new List<(long ItemId, int Qty)>();
+        using (var r = prior.ExecuteReader())
+            while (r.Read())
+                if (r["StockItemId"] != DBNull.Value)
+                    restore.Add((Convert.ToInt64(r["StockItemId"]), Convert.ToInt32(r["Qty"])));
+
+        foreach (var (itemId, qty) in restore)
+        {
+            var back = conn.CreateCommand();
+            back.CommandText = "UPDATE StockItems SET Quantity = Quantity + $q, UpdatedAt=datetime('now','localtime') WHERE Id=$id";
+            back.Parameters.AddWithValue("$q", qty);
+            back.Parameters.AddWithValue("$id", itemId);
+            back.ExecuteNonQuery();
+        }
+
+        var clear = conn.CreateCommand();
+        clear.CommandText = "DELETE FROM StockSales WHERE OrderId=$oid";
+        clear.Parameters.AddWithValue("$oid", o.Id);
+        clear.ExecuteNonQuery();
+
+        if (stock == null) return;
+
+        foreach (var pick in stock)
+        {
+            if (pick.StockItemId <= 0 || pick.Qty <= 0) continue;
+
+            var item = conn.CreateCommand();
+            item.CommandText = "SELECT SuitType, Color, CreatedAt, UpdatedAt FROM StockItems WHERE Id=$id";
+            item.Parameters.AddWithValue("$id", pick.StockItemId);
+
+            string suitType, color;
+            object addedAt, updatedAt;
+            using (var r = item.ExecuteReader())
+            {
+                if (!r.Read()) continue;
+                suitType  = r["SuitType"].ToString()!;
+                color     = r["Color"] == DBNull.Value ? "" : r["Color"].ToString()!;
+                addedAt   = r["CreatedAt"] == DBNull.Value ? DBNull.Value : r["CreatedAt"];
+                updatedAt = r["UpdatedAt"] == DBNull.Value ? DBNull.Value : r["UpdatedAt"];
+            }
+
+            var deduct = conn.CreateCommand();
+            deduct.CommandText = "UPDATE StockItems SET Quantity = Quantity - $q, UpdatedAt=datetime('now','localtime') WHERE Id=$id";
+            deduct.Parameters.AddWithValue("$q", pick.Qty);
+            deduct.Parameters.AddWithValue("$id", pick.StockItemId);
+            deduct.ExecuteNonQuery();
+
+            var log = conn.CreateCommand();
+            log.CommandText = @"INSERT INTO StockSales(StockItemId,OrderId,CustomerId,CustomerName,SuitType,Color,Qty,UnitPrice,ItemAddedAt,ItemUpdatedAt)
+                VALUES($sid,$oid,$cid,$cname,$type,$color,$qty,$price,$added,$updated)";
+            log.Parameters.AddWithValue("$sid", pick.StockItemId);
+            log.Parameters.AddWithValue("$oid", o.Id);
+            log.Parameters.AddWithValue("$cid", o.CustomerId);
+            log.Parameters.AddWithValue("$cname", customerName);
+            log.Parameters.AddWithValue("$type", suitType);
+            log.Parameters.AddWithValue("$color", color.Length == 0 ? DBNull.Value : color);
+            log.Parameters.AddWithValue("$qty", pick.Qty);
+            log.Parameters.AddWithValue("$price", pick.UnitPrice);
+            log.Parameters.AddWithValue("$added", addedAt);
+            log.Parameters.AddWithValue("$updated", updatedAt);
+            log.ExecuteNonQuery();
+        }
+    }
+
+    public static List<StockItem> GetStockItems(string search = "", bool includeEmpty = true)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = @"SELECT * FROM StockItems WHERE IsDeleted = 0"
+            + (string.IsNullOrWhiteSpace(search) ? "" : " AND (SuitType LIKE $q OR Color LIKE $q)")
+            + (includeEmpty ? "" : " AND Quantity > 0")
+            + " ORDER BY SuitType, Color";
+        if (!string.IsNullOrWhiteSpace(search))
+            cmd.Parameters.AddWithValue("$q", $"%{search}%");
+
+        var list = new List<StockItem>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(MapStockItem(r));
+        return list;
+    }
+
+    public static StockItem? GetStockItem(long id)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT * FROM StockItems WHERE Id=$id";
+        cmd.Parameters.AddWithValue("$id", id);
+        using var r = cmd.ExecuteReader();
+        return r.Read() ? MapStockItem(r) : null;
+    }
+
+    public static long SaveStockItem(StockItem item)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        if (item.Id == 0)
+        {
+            cmd.CommandText = @"INSERT INTO StockItems(SuitType,Color,Quantity,PurchasePrice,RetailPrice)
+                VALUES($type,$color,$qty,$pp,$rp); SELECT last_insert_rowid();";
+        }
+        else
+        {
+            cmd.CommandText = @"UPDATE StockItems SET SuitType=$type, Color=$color, Quantity=$qty,
+                PurchasePrice=$pp, RetailPrice=$rp, UpdatedAt=datetime('now','localtime')
+                WHERE Id=$id; SELECT $id;";
+            cmd.Parameters.AddWithValue("$id", item.Id);
+        }
+        cmd.Parameters.AddWithValue("$type", item.SuitType);
+        cmd.Parameters.AddWithValue("$color", (object?)item.Color ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$qty", item.Quantity);
+        cmd.Parameters.AddWithValue("$pp", item.PurchasePrice);
+        cmd.Parameters.AddWithValue("$rp", item.RetailPrice);
+        item.Id = Convert.ToInt64(cmd.ExecuteScalar());
+        return item.Id;
+    }
+
+    public static void DeleteStockItem(long id)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE StockItems SET IsDeleted=1, UpdatedAt=datetime('now','localtime') WHERE Id=$id";
+        cmd.Parameters.AddWithValue("$id", id);
+        cmd.ExecuteNonQuery();
+    }
+
+    public static List<StockSale> GetStockSales(long? stockItemId = null, DateTime? from = null, DateTime? to = null)
+    {
+        using var conn = new SqliteConnection(ConnectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+
+        var where = new List<string>();
+        if (stockItemId != null) where.Add("StockItemId=$sid");
+        if (from != null) where.Add("datetime(SoldAt) >= datetime($from)");
+        if (to != null) where.Add("datetime(SoldAt) <= datetime($to)");
+
+        cmd.CommandText = "SELECT * FROM StockSales"
+            + (where.Count == 0 ? "" : " WHERE " + string.Join(" AND ", where))
+            + " ORDER BY datetime(SoldAt) DESC, Id DESC";
+
+        if (stockItemId != null) cmd.Parameters.AddWithValue("$sid", stockItemId.Value);
+        if (from != null) cmd.Parameters.AddWithValue("$from", from.Value.ToString("yyyy-MM-dd HH:mm:ss"));
+        if (to != null) cmd.Parameters.AddWithValue("$to", to.Value.ToString("yyyy-MM-dd HH:mm:ss"));
+
+        var list = new List<StockSale>();
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) list.Add(MapStockSale(r));
+        return list;
+    }
+
+    private static StockItem MapStockItem(SqliteDataReader r) => new()
+    {
+        Id            = Convert.ToInt64(r["Id"]),
+        SuitType      = r["SuitType"].ToString()!,
+        Color         = r["Color"] == DBNull.Value ? null : r["Color"].ToString(),
+        Quantity      = Convert.ToInt32(r["Quantity"]),
+        PurchasePrice = Convert.ToDecimal(r["PurchasePrice"]),
+        RetailPrice   = Convert.ToDecimal(r["RetailPrice"]),
+        CreatedAt     = r["CreatedAt"] == DBNull.Value ? null : r["CreatedAt"].ToString(),
+        UpdatedAt     = r["UpdatedAt"] == DBNull.Value ? null : r["UpdatedAt"].ToString(),
+    };
+
+    private static StockSale MapStockSale(SqliteDataReader r) => new()
+    {
+        Id           = Convert.ToInt64(r["Id"]),
+        StockItemId  = r["StockItemId"] == DBNull.Value ? null : Convert.ToInt64(r["StockItemId"]),
+        OrderId      = Convert.ToInt64(r["OrderId"]),
+        CustomerId   = Convert.ToInt64(r["CustomerId"]),
+        CustomerName = r["CustomerName"].ToString()!,
+        SuitType     = r["SuitType"].ToString()!,
+        Color        = r["Color"] == DBNull.Value ? null : r["Color"].ToString(),
+        Qty          = Convert.ToInt32(r["Qty"]),
+        UnitPrice    = Convert.ToDecimal(r["UnitPrice"]),
+        SoldAt        = r["SoldAt"] == DBNull.Value ? null : r["SoldAt"].ToString(),
+        ItemAddedAt   = r["ItemAddedAt"] == DBNull.Value ? null : r["ItemAddedAt"].ToString(),
+        ItemUpdatedAt = r["ItemUpdatedAt"] == DBNull.Value ? null : r["ItemUpdatedAt"].ToString(),
     };
 
     private static Customer MapCustomer(SqliteDataReader r) => new()
     {
         Id                = Convert.ToInt64(r["Id"]),
         Name              = r["Name"].ToString()!,
+        SerialNumber      = r["SerialNumber"] == DBNull.Value ? null : r["SerialNumber"].ToString(),
         Phone             = r["Phone"]    == DBNull.Value ? null : r["Phone"].ToString(),
         Address           = r["Address"]  == DBNull.Value ? null : r["Address"].ToString(),
         Notes             = r["Notes"]    == DBNull.Value ? null : r["Notes"].ToString(),

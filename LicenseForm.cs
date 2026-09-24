@@ -118,6 +118,11 @@ public class LicenseForm : Form
         btnExit.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
         Controls.Add(btnExit);
 
+        Theme.SetIcon(btnCopy, Theme.Glyph.Copy);
+        Theme.SetIcon(btnActivate, Theme.Glyph.Key);
+        Theme.SetIcon(btnExit, Theme.Glyph.Close);
+        Shown += (_, _) => Theme.CenterButtons(this);
+
         AcceptButton = btnActivate;
     }
 

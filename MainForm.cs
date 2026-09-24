@@ -10,14 +10,19 @@ public partial class MainForm : Form {
     private bool _healthBusy;
     private bool _retryBusy;
     private int _markReadyHoverRow = -1;
+    private Panel _toolBar = null!;
+    private Label _lblStockCard = null!;
+    private Label _lblRemainingCard = null!;
+    private Label _lblUnstitchedCard = null!;
 
     public MainForm() {
         InitializeComponent();
+        Database.Initialize();
         ApplyGridStyles();
         ApplyPolish();
-        BuildBackupButton();
+        BuildSummaryCards();
+        BuildToolbarButtons();
         WireEvents();
-        Database.Initialize();
         LoadCustomers();
         Task.Run(Backup.RunIfDue);
 
@@ -26,43 +31,126 @@ public partial class MainForm : Form {
         Task.Run(WhatsAppProcess.Start);
         StartWhatsAppTimers();
         FormClosing += (_, _) => WhatsAppProcess.Stop();
+        Shown += (_, _) => Theme.CenterButtons(this);
     }
 
     private void ApplyPolish() {
         foreach (var btn in new[] { btnSearch, btnClear, btnAdd, btnEdit, btnDelete, btnRelinkWhatsApp })
             Theme.RoundCorners(btn, 6);
 
+        Theme.SetIcon(btnSearch, Theme.Glyph.Search);
+        Theme.SetIcon(btnClear, Theme.Glyph.Clear);
+        Theme.SetIcon(btnAdd, Theme.Glyph.Add);
+        Theme.SetIcon(btnEdit, Theme.Glyph.Edit);
+        Theme.SetIcon(btnDelete, Theme.Glyph.Delete);
+
         foreach (var btn in new[] { btnSearch, btnClear, btnAdd, btnEdit })
             Theme.ApplyLightHover(btn);
 
         WrapWithBorder(txtSearch, Theme.DarkGold);
+        BuildAppLogo();
         BuildHeaderBrand();
 
         panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
         panelBottom.Controls.Add(Theme.AccentDivider(DockStyle.Top));
     }
 
-    private void BuildBackupButton() {
-        var btnBackup = new Button {
-            Text      = "Backup & Restore",
-            BackColor = Theme.NormalGrey,
-            ForeColor = Theme.TextOnNormal,
-            FlatStyle = FlatStyle.Flat,
-            Font      = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            Size      = new Size(175, 33),
-            Anchor    = AnchorStyles.Top | AnchorStyles.Right,
-            Location  = new Point(panelBottom.Width - 189, 12),
-            Cursor    = Cursors.Hand,
-            UseVisualStyleBackColor = false
-        };
-        btnBackup.FlatAppearance.BorderSize  = 2;
-        btnBackup.FlatAppearance.BorderColor = Theme.DarkGold;
-        btnBackup.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.NormalGrey);
-        Theme.RoundCorners(btnBackup, 6);
+    private void BuildToolbarButtons() {
+        // Re-link WhatsApp is declared on panelSearch by the designer; it belongs on this
+        // row instead, so move it across and keep it right-most.
+        panelSearch.Controls.Remove(btnRelinkWhatsApp);
+        btnRelinkWhatsApp.Size     = new Size(190, 32);
+        btnRelinkWhatsApp.Location = new Point(_toolBar.Width - 204, 6);
+        _toolBar.Controls.Add(btnRelinkWhatsApp);
+
+        var btnBackup = MakeToolbarButton("Backup & Restore", Theme.Glyph.Backup, 190, _toolBar.Width - 204 - 200);
         btnBackup.Click += BtnBackup_Click;
 
-        panelBottom.Controls.Add(btnBackup);
-        btnBackup.BringToFront();
+        var btnStock = MakeToolbarButton("Stock", Theme.Glyph.Stock, 120, _toolBar.Width - 204 - 200 - 130);
+        btnStock.Click += (_, _) => { using var f = new StockForm(); f.ShowDialog(this); LoadCustomers(txtSearch.Text); };
+
+        var btnHistory = MakeToolbarButton("Sale History", Theme.Glyph.History, 150, _toolBar.Width - 204 - 200 - 130 - 160);
+        btnHistory.Click += (_, _) => { using var f = new StockHistoryForm(null); f.ShowDialog(this); };
+
+        foreach (var btn in new[] { btnBackup, btnStock, btnHistory }) {
+            _toolBar.Controls.Add(btn);
+            btn.BringToFront();
+        }
+        btnRelinkWhatsApp.BringToFront();
+    }
+
+    private static Button MakeToolbarButton(string text, Theme.Glyph glyph, int width, int left) {
+        var btn = new Button {
+            Text      = "  " + text,
+            BackColor = Theme.DarkGrey,
+            ForeColor = Theme.TextOnDark,
+            FlatStyle = FlatStyle.Flat,
+            Font      = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            Size      = new Size(width, 32),
+            Anchor    = AnchorStyles.Top | AnchorStyles.Right,
+            Location  = new Point(left, 6),
+            Cursor    = Cursors.Hand,
+            UseVisualStyleBackColor = false,
+            TextImageRelation = TextImageRelation.ImageBeforeText
+        };
+        btn.FlatAppearance.BorderSize  = 2;
+        btn.FlatAppearance.BorderColor = Theme.DarkGold;
+        btn.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
+        Theme.RoundCorners(btn, 6);
+        Theme.SetIcon(btn, glyph);
+        return btn;
+    }
+
+    private void BuildSummaryCards() {
+        var bar = new Panel {
+            Dock      = DockStyle.Top,
+            Height    = 44,
+            BackColor = Theme.DarkGrey
+        };
+        _toolBar = bar;
+        bar.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
+
+        _lblStockCard      = MakeSummaryCard(new Point(20, 6), 230);
+        _lblRemainingCard  = MakeSummaryCard(new Point(260, 6), 230);
+        _lblUnstitchedCard = MakeSummaryCard(new Point(500, 6), 230);
+
+        bar.Controls.Add(_lblStockCard);
+        bar.Controls.Add(_lblRemainingCard);
+        bar.Controls.Add(_lblUnstitchedCard);
+        _lblStockCard.BringToFront();
+        _lblRemainingCard.BringToFront();
+        _lblUnstitchedCard.BringToFront();
+
+        // Among docked siblings a higher child index sits higher on screen, so the Fill grid
+        // stays lowest and the Top panels ascend: search row, then this bar, then the header.
+        Controls.Add(bar);
+        Controls.SetChildIndex(grid, 0);
+        Controls.SetChildIndex(panelBottom, 1);
+        Controls.SetChildIndex(panelSearch, 2);
+        Controls.SetChildIndex(bar, 3);
+        Controls.SetChildIndex(panelHeader, 4);
+
+        RefreshSummaryCards(0m);
+    }
+
+    private static Label MakeSummaryCard(Point location, int width) {
+        return new Label {
+            BackColor    = Theme.Hover(Theme.DarkGrey),
+            ForeColor    = Theme.TextOnDark,
+            Font         = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+            TextAlign    = ContentAlignment.MiddleCenter,
+            Location     = location,
+            Size         = new Size(width, 32),
+            AutoEllipsis = true
+        };
+    }
+
+    private void RefreshSummaryCards(decimal totalRemaining, int unstitchedQty = 0) {
+        var stockItems    = Database.GetStockItems();
+        var totalStockQty = stockItems.Sum(s => s.Quantity);
+        _lblStockCard.Text      = $"Stock Items: {stockItems.Count}   |   Qty: {totalStockQty}";
+        _lblRemainingCard.Text  = $"Remaining Total: Rs {totalRemaining:N0}";
+        _lblUnstitchedCard.Text = $"Unstitched Suits: {unstitchedQty}";
     }
 
     private void BtnBackup_Click(object? sender, EventArgs e) {
@@ -74,9 +162,31 @@ public partial class MainForm : Form {
         }
     }
 
+    private void BuildAppLogo() {
+        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "GoldenTailor_Logo.png");
+        if (!File.Exists(logoPath)) return;
+
+        try {
+            using var fs = new FileStream(logoPath, FileMode.Open, FileAccess.Read);
+            var logo = new Bitmap(Image.FromStream(fs));
+
+            lblTitle.Visible    = false;
+            lblSubtitle.Visible = false;
+
+            panelHeader.Controls.Add(new PictureBox {
+                Image     = logo,
+                SizeMode  = PictureBoxSizeMode.Zoom,
+                BackColor = Color.Transparent,
+                Location  = new Point(20, 4),
+                Size      = new Size(200, 72)
+            });
+        }
+        catch { }
+    }
+
     private void BuildHeaderBrand() {
         var brand = new Panel {
-            Size      = new Size(190, 72),
+            Size      = new Size(238, 72),
             Location  = new Point(0, 4),
             BackColor = Color.Transparent
         };
@@ -88,11 +198,11 @@ public partial class MainForm : Form {
                 using var raw     = Image.FromStream(fs);
                 using var trimmed = Theme.TrimUniformMargins(raw);
                 brand.Controls.Add(new PictureBox {
-                    Image     = Theme.ToWhiteSilhouette(trimmed),
+                    Image     = Theme.ToSilhouette(trimmed, Theme.DarkGold),
                     SizeMode  = PictureBoxSizeMode.Zoom,
                     BackColor = Color.Transparent,
-                    Location  = new Point(0, 0),
-                    Size      = new Size(190, 34)
+                    Location  = new Point(0, 8),
+                    Size      = new Size(62, 56)
                 });
             } catch { }
         }
@@ -100,21 +210,21 @@ public partial class MainForm : Form {
         brand.Controls.Add(new Label {
             Text      = "The Koder Bench",
             Font      = new Font("Segoe UI", 11f, FontStyle.Bold),
-            ForeColor = Color.White,
+            ForeColor = Theme.DarkGold,
             BackColor = Color.Transparent,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Location  = new Point(0, 36),
-            Size      = new Size(190, 20)
+            TextAlign = ContentAlignment.BottomLeft,
+            Location  = new Point(64, 16),
+            Size      = new Size(174, 22)
         });
 
         brand.Controls.Add(new Label {
             Text      = "BUILD  ·  TRUST  ·  SOLVE",
             Font      = new Font("Segoe UI", 7.5f, FontStyle.Bold),
-            ForeColor = Color.White,
+            ForeColor = Theme.DarkGold,
             BackColor = Color.Transparent,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Location  = new Point(0, 56),
-            Size      = new Size(190, 14)
+            TextAlign = ContentAlignment.TopLeft,
+            Location  = new Point(64, 40),
+            Size      = new Size(174, 16)
         });
 
         panelHeader.Controls.Add(brand);
@@ -243,7 +353,9 @@ public partial class MainForm : Form {
         foreach (var r in rows) {
             DateTime dlv;
             bool dlvParsed;
-            var idx = grid.Rows.Add(r.Customer.Id, r.Customer.Name, r.Customer.Phone ?? "-",
+            var idx = grid.Rows.Add(r.Customer.Id,
+                          string.IsNullOrWhiteSpace(r.Customer.SerialNumber) ? "-" : r.Customer.SerialNumber,
+                          r.Customer.Name, r.Customer.Phone ?? "-",
                           r.Customer.CreatedAt?.Split(' ')[0] ?? "",
                           (dlvParsed = DateTime.TryParse(r.Customer.LatestOrderDeliveryDate, out dlv)) ? dlv.ToString("dd MMM yyyy") : "-",
                           r.Customer.LatestOrderStatus ?? "-",
@@ -262,6 +374,20 @@ public partial class MainForm : Form {
         }
 
         lblStatus.Text = $"{_customers.Count} customer(s)";
+
+        var unstitchedQty = _customers
+            .Where(c => c.LatestOrderStatus == OrderStatus.Pending && c.LatestOrderId != null)
+            .Where(c => posByOrder.ContainsKey(c.LatestOrderId!.Value))
+            .Sum(c => {
+                var suitField = posByOrder[c.LatestOrderId!.Value]
+                    .FirstOrDefault(m => m.FieldName == CustomerForm.SuitStitchingFieldName);
+                if (suitField == null) return 0;
+                if (int.TryParse(suitField.Quantity, out var qty)) return qty;
+                // A blank quantity on a row that has an amount still means one suit.
+                return string.IsNullOrWhiteSpace(suitField.Value) ? 0 : 1;
+            });
+
+        RefreshSummaryCards(rows.Sum(r => r.Baaqaya), unstitchedQty);
     }
 
     private static void ApplyDeliveryCellAlert(DataGridViewRow row, string? status, DateTime? deliveryDate) {
@@ -292,7 +418,7 @@ public partial class MainForm : Form {
 
     private Customer? SelectedCustomer() {
         if (grid.CurrentRow == null) return null;
-        var id = Convert.ToInt64(grid.CurrentRow.Cells["colId"].Value);
+        var id = Convert.ToInt64(grid.CurrentRow.Cells["colRealId"].Value);
         return _customers.FirstOrDefault(x => x.Id == id);
     }
 
@@ -312,7 +438,7 @@ public partial class MainForm : Form {
 
     private void Grid_CellContentClick(object? s, DataGridViewCellEventArgs e) {
         if (e.RowIndex < 0 || e.ColumnIndex != colMarkReady.Index) return;
-        var id = Convert.ToInt64(grid.Rows[e.RowIndex].Cells["colId"].Value);
+        var id = Convert.ToInt64(grid.Rows[e.RowIndex].Cells["colRealId"].Value);
         var c  = _customers.FirstOrDefault(x => x.Id == id);
         if (c != null) HandleMarkReady(c);
     }

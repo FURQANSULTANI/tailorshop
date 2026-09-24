@@ -16,6 +16,8 @@ partial class CustomerForm
         this.lblHeader   = new Label();
         this.tabControl  = new TabControl();
         this.tabInfo     = new TabPage();
+        this.lblSerial   = new Label();
+        this.txtSerial   = new TextBox();
         this.lblName     = new Label();
         this.txtName     = new TextBox();
         this.lblPhone    = new Label();
@@ -57,6 +59,8 @@ partial class CustomerForm
         this.tabInfo.Name      = "tabInfo";
         this.tabInfo.Padding   = new Padding(15);
         this.tabInfo.Text      = "Customer Info";
+        this.tabInfo.Controls.Add(this.lblSerial);
+        this.tabInfo.Controls.Add(this.txtSerial);
         this.tabInfo.Controls.Add(this.lblName);
         this.tabInfo.Controls.Add(this.txtName);
         this.tabInfo.Controls.Add(this.lblPhone);
@@ -66,11 +70,30 @@ partial class CustomerForm
         this.tabInfo.Controls.Add(this.lblNotes);
         this.tabInfo.Controls.Add(this.txtNotes);
 
+        // lblSerial
+        this.lblSerial.AutoSize  = true;
+        this.lblSerial.Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+        this.lblSerial.ForeColor = Theme.TextOnNormal;
+        this.lblSerial.Location  = new Point(20, 20);
+        this.lblSerial.Name      = "lblSerial";
+        this.lblSerial.Text      = "Serial Number";
+
+        // txtSerial
+        this.txtSerial.BackColor   = Theme.NormalGrey;
+        this.txtSerial.ForeColor   = Theme.TextOnNormal;
+        this.txtSerial.BorderStyle = BorderStyle.FixedSingle;
+        this.txtSerial.Font        = new Font("Segoe UI", 10f);
+        this.txtSerial.Location    = new Point(20, 42);
+        this.txtSerial.Name        = "txtSerial";
+        this.txtSerial.Size        = new Size(635, 26);
+        this.txtSerial.Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+        this.txtSerial.TabIndex    = 0;
+
         // lblName
         this.lblName.AutoSize  = true;
         this.lblName.Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         this.lblName.ForeColor = Theme.TextOnNormal;
-        this.lblName.Location  = new Point(20, 20);
+        this.lblName.Location  = new Point(20, 82);
         this.lblName.Name      = "lblName";
         this.lblName.Text      = "Customer Name *";
 
@@ -79,17 +102,17 @@ partial class CustomerForm
         this.txtName.ForeColor   = Theme.TextOnNormal;
         this.txtName.BorderStyle = BorderStyle.FixedSingle;
         this.txtName.Font        = new Font("Segoe UI", 10f);
-        this.txtName.Location    = new Point(20, 42);
+        this.txtName.Location    = new Point(20, 104);
         this.txtName.Name        = "txtName";
         this.txtName.Size        = new Size(635, 26);
         this.txtName.Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        this.txtName.TabIndex    = 0;
+        this.txtName.TabIndex    = 1;
 
         // lblPhone
         this.lblPhone.AutoSize = true;
         this.lblPhone.Font     = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         this.lblPhone.ForeColor = Theme.TextOnNormal;
-        this.lblPhone.Location = new Point(20, 82);
+        this.lblPhone.Location = new Point(20, 144);
         this.lblPhone.Name     = "lblPhone";
         this.lblPhone.Text     = "Phone Number";
 
@@ -98,17 +121,17 @@ partial class CustomerForm
         this.txtPhone.ForeColor   = Theme.TextOnNormal;
         this.txtPhone.BorderStyle = BorderStyle.FixedSingle;
         this.txtPhone.Font        = new Font("Segoe UI", 10f);
-        this.txtPhone.Location    = new Point(20, 104);
+        this.txtPhone.Location    = new Point(20, 166);
         this.txtPhone.Name        = "txtPhone";
         this.txtPhone.Size        = new Size(635, 26);
         this.txtPhone.Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        this.txtPhone.TabIndex    = 1;
+        this.txtPhone.TabIndex    = 2;
 
         // lblAddress
         this.lblAddress.AutoSize = true;
         this.lblAddress.Font     = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         this.lblAddress.ForeColor = Theme.TextOnNormal;
-        this.lblAddress.Location = new Point(20, 144);
+        this.lblAddress.Location = new Point(20, 206);
         this.lblAddress.Name     = "lblAddress";
         this.lblAddress.Text     = "Address";
 
@@ -117,17 +140,17 @@ partial class CustomerForm
         this.txtAddress.ForeColor   = Theme.TextOnNormal;
         this.txtAddress.BorderStyle = BorderStyle.FixedSingle;
         this.txtAddress.Font        = new Font("Segoe UI", 10f);
-        this.txtAddress.Location    = new Point(20, 166);
+        this.txtAddress.Location    = new Point(20, 228);
         this.txtAddress.Name        = "txtAddress";
         this.txtAddress.Size        = new Size(635, 26);
         this.txtAddress.Anchor      = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        this.txtAddress.TabIndex    = 2;
+        this.txtAddress.TabIndex    = 3;
 
         // lblNotes
         this.lblNotes.AutoSize = true;
         this.lblNotes.Font     = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         this.lblNotes.ForeColor = Theme.TextOnNormal;
-        this.lblNotes.Location = new Point(20, 206);
+        this.lblNotes.Location = new Point(20, 268);
         this.lblNotes.Name     = "lblNotes";
         this.lblNotes.Text     = "Notes";
 
@@ -136,13 +159,13 @@ partial class CustomerForm
         this.txtNotes.ForeColor    = Theme.TextOnNormal;
         this.txtNotes.BorderStyle  = BorderStyle.FixedSingle;
         this.txtNotes.Font         = new Font("Segoe UI", 9.5f);
-        this.txtNotes.Location     = new Point(20, 228);
+        this.txtNotes.Location     = new Point(20, 290);
         this.txtNotes.Multiline    = true;
         this.txtNotes.Name         = "txtNotes";
         this.txtNotes.ScrollBars   = ScrollBars.Vertical;
         this.txtNotes.Size         = new Size(635, 85);
         this.txtNotes.Anchor       = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        this.txtNotes.TabIndex     = 3;
+        this.txtNotes.TabIndex     = 4;
 
         // ── panelBottom ──────────────────────────────────────────────
         this.panelBottom.BackColor = Theme.DarkGrey;
@@ -207,6 +230,8 @@ partial class CustomerForm
     private Label    lblHeader   = null!;
     private TabControl tabControl= null!;
     private TabPage  tabInfo     = null!;
+    private Label    lblSerial   = null!;
+    private TextBox  txtSerial   = null!;
     private Label    lblName     = null!;
     private TextBox  txtName     = null!;
     private Label    lblPhone    = null!;

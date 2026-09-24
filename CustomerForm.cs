@@ -1,4 +1,5 @@
 using System.Drawing.Printing;
+using System.Text.RegularExpressions;
 
 namespace TailorShop;
 
@@ -8,6 +9,9 @@ public partial class CustomerForm : Form
     private Order _order;
     private readonly bool _isNew;
     private readonly Dictionary<string, FlowLayoutPanel> _sectionPanels = new();
+
+    // Counts stock rows as they are built so each restores its own saved sale.
+    private int _stockRowsBuilt;
 
     // Print state
     private string _printSection = "";
@@ -30,6 +34,7 @@ public partial class CustomerForm : Form
         foreach (var section in Database.DefaultFields.Keys)
             tabControl.TabPages.Add(BuildMeasurementTab(section));
 
+        txtSerial.Text  = _customer.SerialNumber ?? "";
         txtName.Text    = _customer.Name;
         txtPhone.Text   = _customer.Phone   ?? "";
         txtAddress.Text = _customer.Address ?? "";
@@ -42,9 +47,12 @@ public partial class CustomerForm : Form
         Theme.RoundCorners(btnSave, 6);
         Theme.RoundCorners(btnCancel, 6);
         Theme.ApplyLightHover(btnCancel);
-        Theme.PaintFieldBorders(tabInfo, txtName, txtPhone, txtAddress, txtNotes);
+        Theme.SetIcon(btnSave, Theme.Glyph.Save);
+        Theme.SetIcon(btnCancel, Theme.Glyph.Cancel);
+        Theme.PaintFieldBorders(tabInfo, txtSerial, txtName, txtPhone, txtAddress, txtNotes);
         panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
         panelBottom.Controls.Add(Theme.AccentDivider(DockStyle.Top));
+        Shown += (_, _) => Theme.CenterButtons(this);
     }
 
     // ── Tab Strip (owner-drawn so it follows the theme, not the OS default) ────
@@ -112,6 +120,7 @@ public partial class CustomerForm : Form
         btnAddField.FlatAppearance.BorderSize  = 2;
         btnAddField.FlatAppearance.BorderColor = Theme.DarkGold;
         Theme.ApplyLightHover(btnAddField);
+        Theme.SetIcon(btnAddField, Theme.Glyph.Add);
         btnAddField.Click += (_, _) =>
         {
             if (isPos)
@@ -143,6 +152,7 @@ public partial class CustomerForm : Form
         btnPrint.FlatAppearance.BorderSize  = 2;
         btnPrint.FlatAppearance.BorderColor = Theme.DarkGold;
         Theme.ApplyLightHover(btnPrint);
+        Theme.SetIcon(btnPrint, Theme.Glyph.Print);
         btnPrint.Click += (_, _) => PrintSection(section);
         Theme.RoundCorners(btnPrint, 6);
 
@@ -190,6 +200,7 @@ public partial class CustomerForm : Form
             btnNewSlip.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
             btnNewSlip.Click += (_, _) => StartNewSlip();
             Theme.RoundCorners(btnNewSlip, 6);
+            Theme.SetIcon(btnNewSlip, Theme.Glyph.Add);
             toolbar.Controls.Add(btnNewSlip);
 
             var chkDelivery = new CheckBox
@@ -335,6 +346,94 @@ public partial class CustomerForm : Form
         bordered.Add(txtField);
         cursorX += txtField.Width + 12;
 
+        ComboBox? stockCombo = null;
+        TextBox? qtyBox = null;
+        var customStockName = selectedOptions.Length > 0 ? selectedOptions[0] : null;
+        if (def.Name == SuitPurchaseFieldName)
+        {
+            stockCombo = new ComboBox
+            {
+                Tag           = StockComboTag,
+                Location      = new Point(cursorX, 11),
+                Size          = new Size(200, 26),
+                Font          = new Font("Segoe UI", 9.5f),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle     = FlatStyle.Flat,
+                DrawMode      = DrawMode.OwnerDrawFixed,
+                ItemHeight    = 20,
+                BackColor     = Theme.NormalGrey,
+                ForeColor     = Theme.TextOnNormal,
+                DisplayMember = nameof(StockItem.Display)
+            };
+
+            stockCombo.DrawItem += (_, de) =>
+            {
+                de.DrawBackground();
+                if (de.Index < 0) return;
+
+                var item = stockCombo.Items[de.Index];
+                var text = item is StockItem si ? si.Display : item?.ToString() ?? "";
+                var fore = (de.State & DrawItemState.Selected) == DrawItemState.Selected
+                    ? Theme.TextOnWhite
+                    : Theme.TextOnNormal;
+
+                TextRenderer.DrawText(de.Graphics!, text, stockCombo.Font,
+                    Rectangle.Inflate(de.Bounds, -4, 0), fore,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                de.DrawFocusRectangle();
+            };
+
+            // Rows for this field can repeat, so each one restores the sale at its own position.
+            var priorSale = _order.Id == 0
+                ? null
+                : Database.GetStockSales()
+                    .Where(x => x.OrderId == _order.Id)
+                    .OrderBy(x => x.Id)
+                    .Skip(_stockRowsBuilt)
+                    .FirstOrDefault();
+            _stockRowsBuilt++;
+
+            stockCombo.Items.Add(StockNonePlaceholder);
+            stockCombo.SelectedIndex = 0;
+            foreach (var stockItem in Database.GetStockItems())
+            {
+                var at = stockCombo.Items.Add(stockItem);
+                if (priorSale?.StockItemId == stockItem.Id) stockCombo.SelectedIndex = at;
+            }
+            stockCombo.Items.Add(StockOtherOption);
+
+            stockCombo.SelectedIndexChanged += (_, _) =>
+            {
+                if (stockCombo.SelectedItem == null) return;
+                if (ReferenceEquals(stockCombo.SelectedItem, StockOtherOption))
+                {
+                    if (stockCombo.DropDownStyle == ComboBoxStyle.DropDown) return;
+                    void Switch()
+                    {
+                        stockCombo.DropDownStyle = ComboBoxStyle.DropDown;
+                        stockCombo.Text = "";
+                        stockCombo.Focus();
+                    }
+                    if (stockCombo.IsHandleCreated) stockCombo.BeginInvoke(Switch);
+                    else Switch();
+                }
+                else stockCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            };
+
+            var wasOther = priorSale == null && !string.IsNullOrEmpty(customStockName);
+            if (wasOther)
+            {
+                stockCombo.DropDownStyle = ComboBoxStyle.DropDown;
+                stockCombo.SelectedItem  = StockOtherOption;
+                stockCombo.Text          = customStockName;
+                stockCombo.HandleCreated += (_, _) => stockCombo.BeginInvoke(() => stockCombo.Text = customStockName);
+            }
+
+            row.Controls.Add(stockCombo);
+            bordered.Add(stockCombo);
+            cursorX += stockCombo.Width + 12;
+        }
+
         if (def.HasQuantity)
         {
             var txtQty = new TextBox
@@ -354,6 +453,7 @@ public partial class CustomerForm : Form
             if (onChanged != null) txtQty.TextChanged += (_, _) => onChanged();
             row.Controls.Add(txtQty);
             bordered.Add(txtQty);
+            qtyBox = txtQty;
             cursorX += txtQty.Width + 4;
 
             var lblX = new Label
@@ -406,6 +506,17 @@ public partial class CustomerForm : Form
             };
             row.Controls.Add(lblIn);
             cursorX += lblIn.Width + 16;
+
+            if (stockCombo != null)
+            {
+                var priceBox = txtVal;
+                stockCombo.SelectedIndexChanged += (_, _) =>
+                {
+                    if (stockCombo.SelectedItem is not StockItem picked) return;
+                    priceBox.Text = picked.RetailPrice.ToString("0.##");
+                    if (qtyBox != null && string.IsNullOrWhiteSpace(qtyBox.Text)) qtyBox.Text = "1";
+                };
+            }
         }
 
         const int fieldHeight = 28; // matches the value input box — checkbox chips and ✖ line up with it
@@ -452,30 +563,56 @@ public partial class CustomerForm : Form
         {
             var btnRemove = new Button
             {
-                Text      = "✖",
                 Location  = new Point(cursorX, 11),
                 Size      = new Size(fieldHeight, fieldHeight),
                 FlatStyle = FlatStyle.Flat,
-                BackColor = rowAccent,
-                ForeColor = Theme.TextOnDark,
-                Font      = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Theme.DeleteAccent,
+                ForeColor = Theme.TextOnDeleteAccent,
                 Cursor    = Cursors.Hand,
                 TabStop   = false
             };
-            btnRemove.FlatAppearance.BorderSize = 1;
-            btnRemove.FlatAppearance.BorderColor = rowAccent;
-            btnRemove.FlatAppearance.MouseOverBackColor = Theme.DeleteAccent;
-            btnRemove.MouseEnter += (_, _) => btnRemove.ForeColor = Theme.TextOnDeleteAccent;
-            btnRemove.MouseLeave += (_, _) => btnRemove.ForeColor = Theme.TextOnDark;
+            btnRemove.FlatAppearance.BorderSize = 0;
+            btnRemove.FlatAppearance.MouseOverBackColor = Theme.AlertRed;
+            Theme.SetIcon(btnRemove, Theme.Glyph.Close, 13);
+            new ToolTip().SetToolTip(btnRemove, "Ye field hatayein");
+            Theme.RoundCorners(btnRemove, fieldHeight / 2);
             btnRemove.Click += (_, _) =>
             {
                 panel.Controls.Remove(row);
                 row.Dispose();
                 onChanged?.Invoke();
             };
-            Theme.RoundCorners(btnRemove, 4);
             row.Controls.Add(btnRemove);
             cursorX += btnRemove.Width + 12;
+        }
+
+        if (def.Name == SuitPurchaseFieldName)
+        {
+            var btnDuplicate = new Button
+            {
+                Location  = new Point(cursorX, 11),
+                Size      = new Size(fieldHeight, fieldHeight),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Theme.DarkGold,
+                ForeColor = Theme.TextOnGold,
+                Cursor    = Cursors.Hand,
+                TabStop   = false
+            };
+            btnDuplicate.FlatAppearance.BorderSize = 0;
+            btnDuplicate.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
+            Theme.SetIcon(btnDuplicate, Theme.Glyph.Add, 14);
+            new ToolTip().SetToolTip(btnDuplicate, "Aur suit add karein");
+            Theme.RoundCorners(btnDuplicate, fieldHeight / 2);
+            btnDuplicate.Click += (_, _) =>
+            {
+                var copy = AddFieldRowCore(panel, def, "", Array.Empty<string>(),
+                    scrollIntoView: true, onChanged: onChanged, accent: accent);
+                panel.Controls.SetChildIndex(copy, panel.Controls.GetChildIndex(row) + 1);
+                RepositionPosSpecialRowsCore(panel);
+                onChanged?.Invoke();
+            };
+            row.Controls.Add(btnDuplicate);
+            cursorX += btnDuplicate.Width + 12;
         }
 
         Theme.PaintFieldBorders(row, bordered.ToArray());
@@ -494,8 +631,14 @@ public partial class CustomerForm : Form
     public const string CustomerPayRowTag  = "CustomerPayRow";
     public const string BaaqayaRowTag      = "BaaqayaRow";
     public const string AdvanceFieldName   = "Advance";
+    public const string DiscountFieldName  = "Discount";
     public const string CustomerPayFieldName = "Paid Amount";
     public const string RemainingFieldName   = "Previous Balance";
+    public const string SuitStitchingFieldName = "Suit Stitching";
+    public const string SuitPurchaseFieldName  = "Suit Purchase";
+    public const string StockComboTag          = "stock";
+    public const string StockNonePlaceholder   = "-- No stock item --";
+    public const string StockOtherOption       = "Other...";
 
     private static Panel BuildComputedRow(FlowLayoutPanel panel, string label, object rowTag, Color accent)
     {
@@ -611,7 +754,8 @@ public partial class CustomerForm : Form
                 decimal.TryParse(tQty.Text.Trim(), out var qty);
                 amount *= qty == 0 && string.IsNullOrEmpty(tQty.Text.Trim()) ? 1 : qty;
             }
-            total += tField?.Text.Trim() == AdvanceFieldName ? -amount : amount;
+            var fieldName = tField?.Text.Trim();
+            total += fieldName == AdvanceFieldName || fieldName == DiscountFieldName ? -amount : amount;
         }
 
         if (totalBox != null) totalBox.Text = total.ToString("N0");
@@ -622,6 +766,8 @@ public partial class CustomerForm : Form
 
     private void BuildPosFields(FlowLayoutPanel panel, string section, List<Measurement> existing, Action onChanged, Color accent)
     {
+        _stockRowsBuilt = 0;
+
         if (existing.Count > 0)
         {
             var defsByName = Database.DefaultFields.TryGetValue(section, out var defs)
@@ -633,6 +779,14 @@ public partial class CustomerForm : Form
                 var def      = defsByName.TryGetValue(m.FieldName, out var d) ? d : new FieldDef { Name = m.FieldName };
                 var selected = m.SelectedOptions?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
                 AddFieldRowCore(panel, def, m.Value ?? "", selected, scrollIntoView: false, onChanged: onChanged, quantity: m.Quantity, accent: accent);
+            }
+
+            // Orders saved before Discount existed have no row for it — add an empty one.
+            if (defsByName.TryGetValue(DiscountFieldName, out var discountDef)
+                && !existing.Any(m => m.FieldName == DiscountFieldName))
+            {
+                AddFieldRowCore(panel, discountDef, "", Array.Empty<string>(),
+                    scrollIntoView: false, onChanged: onChanged, accent: accent);
             }
         }
         else
@@ -703,7 +857,7 @@ public partial class CustomerForm : Form
                 decimal.TryParse(m.Quantity, out var qty);
                 amount *= qty;
             }
-            total += m.FieldName == AdvanceFieldName ? -amount : amount;
+            total += m.FieldName == AdvanceFieldName || m.FieldName == DiscountFieldName ? -amount : amount;
         }
         return total;
     }
@@ -818,6 +972,7 @@ public partial class CustomerForm : Form
         btnAddField.FlatAppearance.BorderSize  = 2;
         btnAddField.FlatAppearance.BorderColor = Theme.DarkGold;
         Theme.ApplyLightHover(btnAddField);
+        Theme.SetIcon(btnAddField, Theme.Glyph.Add);
         Theme.RoundCorners(btnAddField, 6);
 
         var btnUpdate = new Button
@@ -834,6 +989,7 @@ public partial class CustomerForm : Form
         btnUpdate.FlatAppearance.BorderSize  = 2;
         btnUpdate.FlatAppearance.BorderColor = Theme.DarkGold;
         Theme.ApplyLightHover(btnUpdate);
+        Theme.SetIcon(btnUpdate, Theme.Glyph.Save);
         Theme.RoundCorners(btnUpdate, 6);
 
         barToolbar.Controls.Add(btnAddField);
@@ -1108,10 +1264,21 @@ public partial class CustomerForm : Form
         using var labelFormat  = new StringFormat { Alignment = StringAlignment.Near,  LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
         using var valueFormat  = new StringFormat { Alignment = StringAlignment.Far,   LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter };
 
-        g.DrawString("Golden Tailor", shopFont, darkBrush, new RectangleF(x, y, pageW, 22f), centerFormat);
-        y += shopFont.GetHeight(g) + 1;
-        g.DrawString("Professional Tailoring Services", subFont, darkBrush, new RectangleF(x, y, pageW, 14f), centerFormat);
-        y += subFont.GetHeight(g) + 6;
+        var logo = ShopLogo;
+        if (logo != null)
+        {
+            const float logoHeight = 34f;
+            var logoWidth = Math.Min(pageW, logo.Width * logoHeight / logo.Height);
+            g.DrawImage(logo, x + (pageW - logoWidth) / 2f, y, logoWidth, logoHeight);
+            y += logoHeight + 6;
+        }
+        else
+        {
+            g.DrawString("Golden Tailor", shopFont, darkBrush, new RectangleF(x, y, pageW, 22f), centerFormat);
+            y += shopFont.GetHeight(g) + 1;
+            g.DrawString("Professional Tailoring Services", subFont, darkBrush, new RectangleF(x, y, pageW, 14f), centerFormat);
+            y += subFont.GetHeight(g) + 6;
+        }
 
         using var rulePen = new Pen(Color.Black, 1f);
         g.DrawLine(rulePen, x, y, x + pageW, y);
@@ -1119,6 +1286,8 @@ public partial class CustomerForm : Form
 
         using var infoFont = new Font("Segoe UI", 8f);
 
+        if (!string.IsNullOrWhiteSpace(_customer.SerialNumber))
+            DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, pageW, ref y, "Serial", _customer.SerialNumber!);
         DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, pageW, ref y, "Name",  _customer.Name);
         DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, pageW, ref y, "Phone", _customer.Phone ?? "-");
         DrawInfoRow(g, infoFont, darkBrush, grayBrush, x, pageW, ref y, "Date",  DateTime.Now.ToString("dd MMM yyyy"));
@@ -1148,17 +1317,21 @@ public partial class CustomerForm : Form
         Font FontFor(string text) =>
             text.Any(ch => ch >= 0x0600 && ch <= 0x06FF) ? Theme.UrduFontSmall : latinFont;
 
-        float rowH   = 15f;
+        // Nastaliq needs ~22px at this size; a stacked fraction needs more still.
+        const float rowH         = 22f;
+        const float fractionRowH = 30f;
         float valueW = pageW * 0.38f;
         float labelW = pageW - valueW;
 
         foreach (var (field, val) in _printRows)
         {
+            var thisRowH = FractionPattern.IsMatch(val.Trim()) ? fractionRowH : rowH;
+
             g.DrawString(field, FontFor(field), darkBrush,
-                new RectangleF(x, y, labelW, rowH), labelFormat);
-            g.DrawString(val, FontFor(val), darkBrush,
-                new RectangleF(x + labelW, y, valueW, rowH), valueFormat);
-            y += rowH;
+                new RectangleF(x, y, labelW, thisRowH), labelFormat);
+            DrawValueWithFraction(g, val, FontFor(val), darkBrush,
+                new RectangleF(x + labelW, y, valueW, thisRowH), valueFormat);
+            y += thisRowH;
             g.DrawLine(dottedPen, x, y, x + pageW, y);
             y += 2;
         }
@@ -1188,6 +1361,75 @@ public partial class CustomerForm : Form
             new RectangleF(x, y, width, 12f), format);
     }
 
+    private static Image? _shopLogo;
+    private static bool _shopLogoLoaded;
+
+    // The header logo is white artwork; receipts print on white, so it is re-tinted black.
+    private static Image? ShopLogo
+    {
+        get
+        {
+            if (_shopLogoLoaded) return _shopLogo;
+            _shopLogoLoaded = true;
+            try
+            {
+                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "GoldenTailor_Logo.png");
+                if (File.Exists(path))
+                {
+                    using var fs  = new FileStream(path, FileMode.Open, FileAccess.Read);
+                    using var raw = Image.FromStream(fs);
+                    _shopLogo = Theme.RecolorOpaque(raw, Color.Black);
+                }
+            }
+            catch { }
+            return _shopLogo;
+        }
+    }
+
+    private static readonly Regex FractionPattern =
+        new(@"^(?<whole>\d+\s*[-\s])?(?<num>\d+)\s*/\s*(?<den>\d+)$", RegexOptions.Compiled);
+
+    private static void DrawValueWithFraction(Graphics g, string val, Font font, Brush brush, RectangleF bounds, StringFormat format) {
+        var match = FractionPattern.Match(val.Trim());
+        if (!match.Success) {
+            g.DrawString(val, font, brush, bounds, format);
+            return;
+        }
+
+        var whole = match.Groups["whole"].Success ? match.Groups["whole"].Value.Trim(' ', '-') : "";
+        var num = match.Groups["num"].Value;
+        var den = match.Groups["den"].Value;
+
+        using var fracFont = new Font(font.FontFamily, font.Size * 0.62f, font.Style);
+
+        var numSize = g.MeasureString(num, fracFont);
+        var denSize = g.MeasureString(den, fracFont);
+        var barWidth = Math.Max(numSize.Width, denSize.Width) + 2f;
+        var wholeSize = whole.Length > 0 ? g.MeasureString(whole + " ", font) : SizeF.Empty;
+
+        var totalWidth = wholeSize.Width + barWidth;
+        var startX = format.Alignment switch {
+            StringAlignment.Center => bounds.X + (bounds.Width - totalWidth) / 2f,
+            StringAlignment.Far => bounds.X + bounds.Width - totalWidth,
+            _ => bounds.X
+        };
+
+        var midY = bounds.Y + bounds.Height / 2f;
+
+        if (whole.Length > 0) {
+            using var wholeFormat = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
+            g.DrawString(whole, font, brush, new RectangleF(startX, bounds.Y, wholeSize.Width, bounds.Height), wholeFormat);
+        }
+
+        var fracX = startX + wholeSize.Width;
+        using var fracCenterFormat = new StringFormat { Alignment = StringAlignment.Center };
+
+        g.DrawString(num, fracFont, brush, new RectangleF(fracX, midY - numSize.Height - 1f, barWidth, numSize.Height), fracCenterFormat);
+        using var barPen = new Pen(brush is SolidBrush sb ? sb.Color : Color.Black, 1f);
+        g.DrawLine(barPen, fracX + 1f, midY, fracX + barWidth - 1f, midY);
+        g.DrawString(den, fracFont, brush, new RectangleF(fracX, midY + 1f, barWidth, denSize.Height), fracCenterFormat);
+    }
+
     private static void DrawInfoRow(Graphics g, Font font,
         Brush dark, Brush gray, float x, float width, ref float y,
         string label, string value)
@@ -1198,11 +1440,13 @@ public partial class CustomerForm : Form
             Trimming  = StringTrimming.EllipsisCharacter
         };
 
-        var valueFont = value.Any(ch => ch >= 0x0600 && ch <= 0x06FF) ? Theme.UrduFontSmall : font;
+        var isUrdu    = value.Any(ch => ch >= 0x0600 && ch <= 0x06FF);
+        var valueFont = isUrdu ? Theme.UrduFontSmall : font;
+        var rowHeight = isUrdu ? 22f : 14f;
 
         g.DrawString($"{label}:", font, gray, x, y);
-        g.DrawString(value, valueFont, dark, new RectangleF(x + 42f, y, width - 42f, 14f), valueFormat);
-        y += 13f;
+        g.DrawString(value, valueFont, dark, new RectangleF(x + 42f, y, width - 42f, rowHeight), valueFormat);
+        y += isUrdu ? 21f : 13f;
     }
 
     // ── Save ─────────────────────────────────────────────────────────────────
@@ -1216,6 +1460,19 @@ public partial class CustomerForm : Form
             return;
         }
 
+        var serial = txtSerial.Text.Trim();
+        if (serial.Length > 0 && Database.SerialNumberExists(serial, _customer.Id))
+        {
+            MessageBox.Show($"Serial number '{serial}' pehle se kisi aur customer ka hai." +
+                Environment.NewLine + Environment.NewLine + "Koi aur serial number likhein.",
+                "Golden Tailor", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            tabControl.SelectedTab = tabInfo;
+            txtSerial.Focus();
+            txtSerial.SelectAll();
+            return;
+        }
+
+        _customer.SerialNumber = serial.NullIfEmpty();
         _customer.Name    = txtName.Text.Trim();
         _customer.Phone   = txtPhone.Text.Trim().NullIfEmpty();
         _customer.Address = txtAddress.Text.Trim().NullIfEmpty();
@@ -1242,6 +1499,9 @@ public partial class CustomerForm : Form
                         }
                     }
                     else if (c is CheckBox { Checked: true } cb) checkedOptions.Add(cb.Text);
+                    else if (c is ComboBox { Tag: string tag } scb && tag == StockComboTag
+                             && scb.DropDownStyle == ComboBoxStyle.DropDown && scb.Text.Trim().Length > 0)
+                        checkedOptions.Add(scb.Text.Trim());
                 }
 
                 var fn = tField?.Text.Trim() ?? "";
@@ -1257,14 +1517,86 @@ public partial class CustomerForm : Form
             }
         }
 
+        var stock = ReadStockSelections();
+        if (!ConfirmStockAvailability(stock)) return;
+
         Database.SaveCustomer(_customer);
         _order.CustomerId = _customer.Id;
         _order.DeliveryDate = _dtDelivery != null && _deliveryEnabled?.Invoke() == true
             ? _dtDelivery.Value.ToString("yyyy-MM-dd")
             : null;
-        Database.SaveOrder(_order);
+        Database.SaveOrder(_order, stock, _customer.Name);
         DialogResult = DialogResult.OK;
         Close();
+    }
+
+    private List<StockSelection> ReadStockSelections()
+    {
+        var picks = new List<StockSelection>();
+        if (!_sectionPanels.TryGetValue("Point Of Sale", out var panel)) return picks;
+
+        foreach (Control row in panel.Controls)
+        {
+            if (row is not Panel rowPanel) continue;
+
+            ComboBox? combo = null;
+            TextBox? tField = null, tVal = null, tQty = null;
+            foreach (Control c in rowPanel.Controls)
+            {
+                if (c is ComboBox cb && Equals(cb.Tag, StockComboTag)) combo = cb;
+                else if (c is TextBox tb)
+                {
+                    switch (tb.Tag as string)
+                    {
+                        case "field": tField = tb; break;
+                        case "value": tVal = tb; break;
+                        case "qty":   tQty = tb; break;
+                    }
+                }
+            }
+
+            if (combo?.SelectedItem is not StockItem picked) continue;
+            if (tField?.Text.Trim() != SuitPurchaseFieldName) continue;
+
+            var qty = 1;
+            if (!string.IsNullOrWhiteSpace(tQty?.Text) && int.TryParse(tQty.Text.Trim(), out var parsedQty) && parsedQty > 0)
+                qty = parsedQty;
+
+            decimal.TryParse(tVal?.Text.Trim(), out var price);
+
+            picks.Add(new StockSelection { StockItemId = picked.Id, Qty = qty, UnitPrice = price });
+        }
+
+        return picks;
+    }
+
+    private bool ConfirmStockAvailability(List<StockSelection> stock)
+    {
+        // Rows can repeat the same item, so availability is judged on the combined quantity.
+        foreach (var group in stock.GroupBy(s => s.StockItemId))
+        {
+            var item = Database.GetStockItem(group.Key);
+            if (item == null) continue;
+
+            var wanted = group.Sum(s => s.Qty);
+            var alreadyTaken = _order.Id == 0
+                ? 0
+                : Database.GetStockSales(group.Key).Where(x => x.OrderId == _order.Id).Sum(x => x.Qty);
+
+            var available = item.Quantity + alreadyTaken;
+            if (wanted <= available) continue;
+
+            var label = string.IsNullOrWhiteSpace(item.Color) ? item.SuitType : $"{item.SuitType} - {item.Color}";
+            var answer = MessageBox.Show(
+                $"Only {available} item(s) of '{label}' are in stock, but {wanted} are being sold." +
+                Environment.NewLine + Environment.NewLine +
+                "Save anyway? Stock will go negative.",
+                "Stock", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+
+            if (answer != DialogResult.Yes) return false;
+        }
+
+        return true;
     }
 }
 

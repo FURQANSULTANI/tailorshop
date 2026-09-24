@@ -26,6 +26,7 @@ partial class MainForm
         btnRelinkWhatsApp = new Button();
         lblStatus = new Label();
         grid = new DataGridView();
+        colRealId = new DataGridViewTextBoxColumn();
         colId = new DataGridViewTextBoxColumn();
         colName = new DataGridViewTextBoxColumn();
         colPhone = new DataGridViewTextBoxColumn();
@@ -103,7 +104,7 @@ partial class MainForm
         txtSearch.Font = new Font("Segoe UI", 10F);
         txtSearch.Location = new Point(96, 14);
         txtSearch.Name = "txtSearch";
-        txtSearch.PlaceholderText = " Naam ya phone number...";
+        txtSearch.PlaceholderText = " Naam, phone ya serial number...";
         txtSearch.Size = new Size(314, 30);
         txtSearch.TabIndex = 0;
         txtSearch.TextChanged += txtSearch_TextChanged;
@@ -246,7 +247,7 @@ partial class MainForm
         grid.BackgroundColor = Theme.NormalGrey;
         grid.BorderStyle = BorderStyle.None;
         grid.ColumnHeadersHeight = 42;
-        grid.Columns.AddRange(new DataGridViewColumn[] { colId, colName, colPhone, colDate, colDelivery, colOrderStatus, colRemaining, colMarkReady });
+        grid.Columns.AddRange(new DataGridViewColumn[] { colRealId, colId, colName, colPhone, colDate, colDelivery, colOrderStatus, colRemaining, colMarkReady });
         grid.Dock = DockStyle.Fill;
         grid.Location = new Point(0, 138);
         grid.MultiSelect = false;
@@ -259,10 +260,18 @@ partial class MainForm
         grid.Size = new Size(960, 429);
         grid.TabIndex = 0;
         //
+        // colRealId — hidden; holds the database Id so a non-numeric serial can't break lookups
+        //
+        colRealId.HeaderText = "Id";
+        colRealId.MinimumWidth = 6;
+        colRealId.Name = "colRealId";
+        colRealId.ReadOnly = true;
+        colRealId.Visible = false;
+        //
         // colId
         //
-        colId.FillWeight = 5F;
-        colId.HeaderText = "#";
+        colId.FillWeight = 10F;
+        colId.HeaderText = "Serial #";
         colId.MinimumWidth = 6;
         colId.Name = "colId";
         colId.ReadOnly = true;
@@ -372,6 +381,7 @@ partial class MainForm
     private Button   btnRelinkWhatsApp = null!;
     private Label    lblStatus    = null!;
     private DataGridView grid     = null!;
+    private DataGridViewTextBoxColumn colRealId  = null!;
     private DataGridViewTextBoxColumn colId      = null!;
     private DataGridViewTextBoxColumn colName    = null!;
     private DataGridViewTextBoxColumn colPhone   = null!;

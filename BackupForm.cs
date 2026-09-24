@@ -13,7 +13,7 @@ public class BackupForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox     = false;
         MinimizeBox     = false;
-        ClientSize      = new Size(540, 340);
+        ClientSize      = new Size(540, 400);
         BackColor       = Theme.NormalGrey;
         Font            = new Font("Segoe UI", 10f);
 
@@ -32,30 +32,34 @@ public class BackupForm : Form
         {
             Font      = new Font("Segoe UI", 9.5f),
             ForeColor = Theme.TextInk,
-            Location  = new Point(24, 78),
-            Size      = new Size(490, 24)
+            Location  = new Point(24, 74),
+            Size      = new Size(490, 36)
         };
         Controls.Add(_lblLast);
         UpdateLastLabel();
 
         Controls.Add(new Label
         {
-            Text      = "A backup is taken automatically every week. Use the buttons below to save a copy now, or to restore an earlier backup.",
+            Text      = "A backup is taken automatically every week when the app opens, and emailed too if email is set up. "
+                      + "Use the buttons below to save a copy now, or to restore an earlier backup.",
             Font      = new Font("Segoe UI", 9.5f),
             ForeColor = Theme.TextInk,
-            Location  = new Point(24, 104),
+            Location  = new Point(24, 112),
             Size      = new Size(490, 44)
         });
 
         var btnNow = MakeButton("Backup Now", Theme.DarkGrey, Theme.TextOnDark, new Point(24, 158), new Size(230, 40));
+        Theme.SetIcon(btnNow, Theme.Glyph.Backup);
         btnNow.Click += BtnNow_Click;
         Controls.Add(btnNow);
 
         var btnCopy = MakeButton("Save Copy To USB / Folder...", Theme.DarkGold, Theme.TextOnGold, new Point(266, 158), new Size(248, 40));
+        Theme.SetIcon(btnCopy, Theme.Glyph.Cloud);
         btnCopy.Click += BtnCopy_Click;
         Controls.Add(btnCopy);
 
         var btnFolder = MakeButton("Open Backup Folder", Theme.NormalGrey, Theme.TextOnNormal, new Point(24, 210), new Size(230, 40));
+        Theme.SetIcon(btnFolder, Theme.Glyph.Folder);
         btnFolder.Click += (_, _) =>
         {
             Directory.CreateDirectory(AppPaths.BackupFolder);
@@ -64,12 +68,29 @@ public class BackupForm : Form
         Controls.Add(btnFolder);
 
         var btnRestore = MakeButton("Restore From Backup...", Theme.DeleteAccent, Theme.TextOnDeleteAccent, new Point(266, 210), new Size(248, 40));
+        Theme.SetIcon(btnRestore, Theme.Glyph.Restore);
         btnRestore.Click += BtnRestore_Click;
         Controls.Add(btnRestore);
 
-        var btnClose = MakeButton("Close", Theme.NormalGrey, Theme.TextOnNormal, new Point(266, 272), new Size(248, 36));
+        var btnEmail = MakeButton("Email Backup", Theme.DarkGrey, Theme.TextOnDark, new Point(24, 262), new Size(230, 40));
+        Theme.SetIcon(btnEmail, Theme.Glyph.Cloud);
+        btnEmail.Click += BtnEmail_Click;
+        Controls.Add(btnEmail);
+
+        var btnEmailSetup = MakeButton("Email Settings...", Theme.NormalGrey, Theme.TextOnNormal, new Point(266, 262), new Size(248, 40));
+        Theme.SetIcon(btnEmailSetup, Theme.Glyph.Edit);
+        btnEmailSetup.Click += (_, _) =>
+        {
+            using var f = new EmailSettingsForm();
+            f.ShowDialog(this);
+        };
+        Controls.Add(btnEmailSetup);
+
+        var btnClose = MakeButton("Close", Theme.NormalGrey, Theme.TextOnNormal, new Point(266, 330), new Size(248, 36));
+        Theme.SetIcon(btnClose, Theme.Glyph.Close);
         btnClose.Click += (_, _) => Close();
         Controls.Add(btnClose);
+        Shown += (_, _) => Theme.CenterButtons(this);
     }
 
     private void BtnNow_Click(object? sender, EventArgs e)
@@ -86,6 +107,53 @@ public class BackupForm : Form
             MessageBox.Show($"Backup failed.{Environment.NewLine}{Environment.NewLine}{result.Error}",
                 "Backup", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    private void BtnEmail_Click(object? sender, EventArgs e)
+    {
+        var settings = EmailSettings.Load();
+        if (!settings.IsConfigured)
+        {
+            var setup = MessageBox.Show(
+                "Email is not set up yet." + Environment.NewLine + Environment.NewLine +
+                "Open Email Settings now?",
+                "Email Backup", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+
+            if (setup != DialogResult.Yes) return;
+
+            using var f = new EmailSettingsForm();
+            if (f.ShowDialog(this) != DialogResult.OK) return;
+            settings = EmailSettings.Load();
+            if (!settings.IsConfigured) return;
+        }
+
+        UseWaitCursor = true;
+        Enabled       = false;
+
+        Task.Run(() =>
+        {
+            var result = EmailBackup.Send(settings);
+            try
+            {
+                BeginInvoke(() =>
+                {
+                    Enabled       = true;
+                    UseWaitCursor = false;
+                    Cursor.Current = Cursors.Default;
+                    UpdateLastLabel();
+
+                    MessageBox.Show(
+                        result.Success
+                            ? $"Backup emailed to {settings.SendTo}.{Environment.NewLine}{Environment.NewLine}Size: {result.SizeText}"
+                            : $"Could not send the backup.{Environment.NewLine}{Environment.NewLine}{result.Error}",
+                        "Email Backup", MessageBoxButtons.OK,
+                        result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                });
+            }
+            catch
+            {
+            }
+        });
     }
 
     private void BtnCopy_Click(object? sender, EventArgs e)
@@ -145,9 +213,14 @@ public class BackupForm : Form
     private void UpdateLastLabel()
     {
         var last = Backup.LastBackupTime();
-        _lblLast.Text = last.HasValue
+        var text = last.HasValue
             ? $"Last automatic backup: {last.Value:dd MMM yyyy, hh:mm tt}"
             : "No automatic backup has run yet.";
+
+        var emailStatus = Backup.LastEmailStatus();
+        if (emailStatus != null) text += $"   |   {emailStatus}";
+
+        _lblLast.Text = text;
     }
 
     private static Button MakeButton(string text, Color back, Color fore, Point location, Size size)
