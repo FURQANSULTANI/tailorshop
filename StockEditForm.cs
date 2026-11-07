@@ -57,6 +57,7 @@ public class StockEditForm : Form
         AcceptButton = btnSave;
         CancelButton = btnCancel;
         Theme.ScaleToDpi(this);
+        Theme.UseAppIcon(this);
         Shown += (_, _) => Theme.CenterButtons(this);
     }
 

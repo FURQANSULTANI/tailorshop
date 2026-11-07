@@ -123,6 +123,7 @@ public class LicenseForm : Form
 
         AcceptButton = btnActivate;
         Theme.ScaleToDpi(this);
+        Theme.UseAppIcon(this);
         Shown += (_, _) => Theme.CenterButtons(this);
     }
 

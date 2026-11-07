@@ -89,6 +89,7 @@ public class WhatsAppSendForm : Form
         Theme.RoundCorners(btnSend, 6);
         Theme.RoundCorners(btnCancel, 6);
         Theme.ScaleToDpi(this);
+        Theme.UseAppIcon(this);
         Shown += (_, _) => Theme.CenterButtons(this);
     }
 }

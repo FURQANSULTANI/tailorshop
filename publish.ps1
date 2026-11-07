@@ -9,8 +9,10 @@ $nodeZipUrl = "https://nodejs.org/dist/$nodeVer/$nodeDist.zip"
 if (Test-Path $outDir) { Remove-Item -Recurse -Force $outDir }
 
 Write-Host "[1/4] Publishing .NET app (self-contained)..." -ForegroundColor Cyan
-dotnet publish "$root\TailorShop.csproj" -c Release -r win-x64 --self-contained true `
-    -p:PublishSingleFile=false -o $outDir | Out-Null
+# Output is hidden on success only - a failed build used to print "Done" with no exe.
+$publishLog = dotnet publish "$root\TailorShop.csproj" -c Release -r win-x64 --self-contained true `
+    -p:PublishSingleFile=false -o $outDir
+if ($LASTEXITCODE -ne 0) { $publishLog | Write-Host; throw "dotnet publish failed (exit $LASTEXITCODE) - see errors above." }
 
 Write-Host "[2/4] Installing Node dependencies (no Chromium download)..." -ForegroundColor Cyan
 $svcOut = Join-Path $outDir "WhatsAppService"
@@ -20,8 +22,10 @@ Copy-Item "$root\WhatsAppService\package.json" $svcOut -Force
 Copy-Item "$root\WhatsAppService\.npmrc"       $svcOut -Force
 Push-Location $svcOut
 $env:PUPPETEER_SKIP_DOWNLOAD = "true"
-npm install --omit=dev --no-audit --no-fund | Out-Null
+$npmLog = npm install --omit=dev --no-audit --no-fund
+$npmExit = $LASTEXITCODE
 Pop-Location
+if ($npmExit -ne 0) { $npmLog | Write-Host; throw "npm install failed (exit $npmExit) - see errors above." }
 
 Write-Host "[3/4] Bundling portable Node runtime..." -ForegroundColor Cyan
 $nodeDir = Join-Path $svcOut "node"

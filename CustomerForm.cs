@@ -21,6 +21,8 @@ public partial class CustomerForm : Form {
         _customer = customer ?? new Customer();
         _order = order ?? new Order { CustomerId = _customer.Id };
         InitializeComponent();
+        Theme.FitToScreen(this);
+        Theme.UseAppIcon(this);
 
         lblHeader.Text = _isNew ? "✂  New Customer" : $"✂  Edit: {_customer.Name}";
         Text = _isNew ? "New Customer — National Tailor" : $"Edit: {_customer.Name}";
@@ -231,7 +233,7 @@ public partial class CustomerForm : Form {
         bool showValue = def.Kind is FieldKind.Text or FieldKind.Both;
         bool showCheckboxes = def.Kind is FieldKind.Checkbox or FieldKind.Both;
 
-        var row = new Panel { Height = 58, Margin = new Padding(0, 0, 0, 6), BackColor = Theme.NormalGrey, Tag = rowTag };
+        var row = new Panel { Height = Px(58), Margin = new Padding(0, 0, 0, 6), BackColor = Theme.NormalGrey, Tag = rowTag };
         var bordered = new List<Control>();
 
         int cursorX = 12;
@@ -241,7 +243,7 @@ public partial class CustomerForm : Form {
             Tag = "field",
             AutoSize = false,
             Location = new Point(cursorX, RowFieldTop + 1),
-            Width = 190,
+            Width = Px(190),
             Height = RowFieldHeight - 2, // fills the painted band so the ink has room
             Font = new Font("Urdu Typesetting", 12f),
             ForeColor = Theme.TextOnNormal,
@@ -483,12 +485,12 @@ public partial class CustomerForm : Form {
                     Text = opt,
                     Checked = selectedOptions.Contains(opt),
                     AutoSize = false,
-                    Height = 40,
+                    Height = RowFieldHeight - 2,
                     TextAlign = ContentAlignment.MiddleCenter,
                     Font = Theme.UrduFont,
-                    Location = new Point(cursorX, RowFieldTop + (RowFieldHeight - 40) / 2)
+                    Location = new Point(cursorX, RowFieldTop + 1)
                 };
-                cb.Width = Math.Max(95, TextRenderer.MeasureText(opt, Theme.UrduFont).Width + 52);
+                cb.Width = Math.Max(Px(95), TextRenderer.MeasureText(opt, Theme.UrduFont).Width + 52);
                 cb.FlatAppearance.BorderSize = 0;
                 cb.FlatAppearance.CheckedBackColor = Theme.DeleteAccent;
                 cb.FlatAppearance.MouseOverBackColor = Theme.DarkGrey;
@@ -509,7 +511,7 @@ public partial class CustomerForm : Form {
         if (removable) {
             var btnRemove = new Button {
                 Location = new Point(cursorX, RowFieldTop + 4),
-                Size = new Size(30, 30),
+                Size = new Size(Px(30), Px(30)),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Theme.DeleteAccent,
                 ForeColor = Theme.TextOnDeleteAccent,
@@ -520,7 +522,7 @@ public partial class CustomerForm : Form {
             btnRemove.FlatAppearance.MouseOverBackColor = Theme.AlertRed;
             Theme.SetIcon(btnRemove, Theme.Glyph.Close, 13);
             new ToolTip().SetToolTip(btnRemove, "Ye field hatayein");
-            Theme.RoundCorners(btnRemove, 15);
+            Theme.RoundCorners(btnRemove, Px(15));
             btnRemove.Click += (_, _) => {
                 panel.Controls.Remove(row);
                 row.Dispose();
@@ -533,7 +535,7 @@ public partial class CustomerForm : Form {
         if (def.Name == SuitPurchaseFieldName) {
             var btnDuplicate = new Button {
                 Location = new Point(cursorX, RowFieldTop + 4),
-                Size = new Size(30, 30),
+                Size = new Size(Px(30), Px(30)),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Theme.DarkGold,
                 ForeColor = Theme.TextOnGold,
@@ -544,7 +546,7 @@ public partial class CustomerForm : Form {
             btnDuplicate.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
             Theme.SetIcon(btnDuplicate, Theme.Glyph.Add, 14);
             new ToolTip().SetToolTip(btnDuplicate, "Aur suit add karein");
-            Theme.RoundCorners(btnDuplicate, 15);
+            Theme.RoundCorners(btnDuplicate, Px(15));
             btnDuplicate.Click += (_, _) => {
                 var copy = AddFieldRowCore(panel, def, "", Array.Empty<string>(),
                     scrollIntoView: true, onChanged: onChanged, accent: accent);
@@ -555,6 +557,10 @@ public partial class CustomerForm : Form {
             row.Controls.Add(btnDuplicate);
             cursorX += btnDuplicate.Width + 12;
         }
+
+        // Center every control in the painted band by its real height, so at any Windows
+        // scaling (100%…200%) the value boxes, chips and buttons line up and nothing clips.
+        foreach (Control c in row.Controls) c.Top = RowFieldTop + (RowFieldHeight - c.Height) / 2;
 
         Theme.PaintFieldBand(row, RowFieldTop, RowFieldHeight, bordered.ToArray());
 
@@ -583,12 +589,12 @@ public partial class CustomerForm : Form {
     private static readonly Font ValueFont = new("Segoe UI", 12f);
     private const int UrduInkCentre = 13;
     private const int LatinInkCentre = 11;
-    private static int BandCentre => RowFieldTop + (RowFieldHeight - 1) / 2;
-    private const int RowFieldHeight = 42;
-    private const int RowFieldTop = 10;
+    private int BandCentre => RowFieldTop + (RowFieldHeight - 1) / 2;
+    private int RowFieldHeight => Px(42); // painted field band, scaled to DPI
+    private int RowFieldTop => Px(10);
 
     private static Panel BuildComputedRow(FlowLayoutPanel panel, string label, object rowTag, Color accent) {
-        var row = new Panel { Height = 58, Margin = new Padding(0, 6, 0, 0), BackColor = accent, Tag = rowTag };
+        var row = new Panel { Height = panel.LogicalToDeviceUnits(58), Margin = new Padding(0, 6, 0, 0), BackColor = accent, Tag = rowTag };
 
         int cursorX = 12;
 
@@ -598,7 +604,7 @@ public partial class CustomerForm : Form {
             ReadOnly = true,
             TabStop = false,
             Location = new Point(cursorX, 10),
-            Width = 190,
+            Width = panel.LogicalToDeviceUnits(190),
             Font = Theme.UrduFont,
             ForeColor = Theme.TextOnDark,
             RightToLeft = RightToLeft.Yes,
@@ -606,7 +612,7 @@ public partial class CustomerForm : Form {
             BorderStyle = BorderStyle.None,
             BackColor = accent,
             AutoSize = false,
-            Height = 38
+            Height = panel.LogicalToDeviceUnits(38)
         };
         Theme.CenterUrduInk(lblName);
         row.Controls.Add(lblName);
@@ -618,7 +624,7 @@ public partial class CustomerForm : Form {
             ReadOnly = true,
             TabStop = false,
             Location = new Point(cursorX, 10),
-            Width = 140,
+            Width = panel.LogicalToDeviceUnits(140),
             Font = new Font("Segoe UI", 12f, FontStyle.Bold),
             BorderStyle = BorderStyle.FixedSingle,
             BackColor = Theme.NormalGrey,
@@ -636,6 +642,9 @@ public partial class CustomerForm : Form {
             Font = new Font("Segoe UI", 9f, FontStyle.Bold)
         };
         row.Controls.Add(lblRs);
+
+        // Center label, value box and "Rs" on the row by their real heights (any DPI).
+        foreach (Control c in row.Controls) c.Top = (row.Height - c.Height) / 2;
         Theme.PaintFieldBorders(row, txtValue);
 
         void FitWidth() => row.Width = Math.Max(panel.ClientSize.Width, 480);

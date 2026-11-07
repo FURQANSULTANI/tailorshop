@@ -19,6 +19,8 @@ public partial class MainForm : Form {
 
     public MainForm() {
         InitializeComponent();
+        Theme.FitToScreen(this);
+        Theme.UseAppIcon(this);
         Database.Initialize();
         ApplyGridStyles();
         ApplyPolish();

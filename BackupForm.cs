@@ -91,6 +91,7 @@ public class BackupForm : Form
         btnClose.Click += (_, _) => Close();
         Controls.Add(btnClose);
         Theme.ScaleToDpi(this);
+        Theme.UseAppIcon(this);
         Shown += (_, _) => Theme.CenterButtons(this);
     }
 

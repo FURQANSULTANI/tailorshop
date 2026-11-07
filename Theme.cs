@@ -108,7 +108,7 @@ public static class Theme
     public static void ScaleToDpi(Form form)
     {
         var factor = form.DeviceDpi / 96f;
-        if (Math.Abs(factor - 1f) < 0.01f) return;
+        if (Math.Abs(factor - 1f) < 0.01f) { FitToScreen(form); return; }
         form.Scale(new SizeF(factor, factor));
 
         // Scale() leaves grid row/header heights alone, so the bigger font would be cramped.
@@ -126,8 +126,31 @@ public static class Theme
         }
         ScaleGrids(form);
 
-        // A big window scaled up can outgrow a small screen — keep it on screen.
+        FitToScreen(form);
+    }
+
+    // The exe's own icon (ApplicationIcon in the csproj). WinForms doesn't put it on
+    // windows by default, so title bars and the taskbar showed the generic app icon.
+    // (Fully qualified: Theme has its own Icon(...) glyph method.)
+    private static System.Drawing.Icon? _appIcon;
+
+    public static void UseAppIcon(Form form)
+    {
+        try { _appIcon ??= System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); }
+        catch { }
+        if (_appIcon != null) form.Icon = _appIcon;
+    }
+
+    // Keeps a window inside the screen's work area (no taskbar overlap), whatever the
+    // laptop's resolution: on a 1366×768 / 1280×720 screen the bigger forms were taller
+    // than the screen, so Save/Cancel at the bottom ended up off-screen. MinimumSize is
+    // capped too, otherwise Windows grows the window right back past the screen edge.
+    public static void FitToScreen(Form form)
+    {
         var work = Screen.FromControl(form).WorkingArea.Size;
+        var min  = form.MinimumSize;
+        if (min.Width > work.Width || min.Height > work.Height)
+            form.MinimumSize = new Size(Math.Min(min.Width, work.Width), Math.Min(min.Height, work.Height));
         if (form.Width > work.Width || form.Height > work.Height)
             form.Size = new Size(Math.Min(form.Width, work.Width), Math.Min(form.Height, work.Height));
     }

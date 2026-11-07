@@ -16,6 +16,8 @@ public class StockForm : Form
         var work      = Screen.PrimaryScreen?.WorkingArea.Size ?? new Size(1366, 728);
         ClientSize    = new Size(Math.Min(Px(1120), work.Width - 40), Math.Min(Px(600), work.Height - 60));
         MinimumSize   = new Size(1000, 460);
+        Theme.FitToScreen(this);
+        Theme.UseAppIcon(this);
         BackColor     = Theme.NormalGrey;
         Font          = new Font("Segoe UI", 10f);
 

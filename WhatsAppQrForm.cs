@@ -33,6 +33,7 @@ public class WhatsAppQrForm : Form
         Controls.Add(_qr);
         Controls.Add(lbl);
         Theme.ScaleToDpi(this);
+        Theme.UseAppIcon(this);
     }
 
     public void SetQr(Image img)
