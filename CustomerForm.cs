@@ -1148,7 +1148,8 @@ public partial class CustomerForm : Form {
 
         using var secFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         bool isPosSlip = _printSection == "Point Of Sale";
-        g.DrawString(isPosSlip ? _printSection : $"{_printSection} Measurements",
+        // "Point Of Sale" is the tab's internal name; the customer's slip says Cash Receipt.
+        g.DrawString(isPosSlip ? "Cash Receipt" : $"{_printSection} Measurements",
             secFont, darkBrush, new RectangleF(x, y, pageW, 16f), centerFormat);
         y += secFont.GetHeight(g) + 5;
 
