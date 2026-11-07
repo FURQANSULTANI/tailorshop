@@ -43,7 +43,7 @@ public class WhatsAppSendForm : Form
         };
         btnSend.FlatAppearance.BorderSize = 0;
         btnSend.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
-        btnSend.Image             = Theme.CreateChatBubbleIcon(btnSend.ForeColor, 16);
+        btnSend.Image             = Theme.CreateChatBubbleIcon(btnSend.ForeColor, btnSend.LogicalToDeviceUnits(16));
         btnSend.ImageAlign        = ContentAlignment.MiddleLeft;
         btnSend.TextImageRelation = TextImageRelation.ImageBeforeText;
         btnSend.Padding           = new Padding(6, 0, 6, 0);
@@ -88,6 +88,7 @@ public class WhatsAppSendForm : Form
 
         Theme.RoundCorners(btnSend, 6);
         Theme.RoundCorners(btnCancel, 6);
+        Theme.ScaleToDpi(this);
         Shown += (_, _) => Theme.CenterButtons(this);
     }
 }

@@ -4,58 +4,112 @@ public class StockForm : Form
 {
     private readonly DataGridView _grid;
     private readonly TextBox      _txtSearch;
-    private readonly Label        _lblSummary;
+    private readonly Label        _lblTypesCard;
+    private readonly Label        _lblItemsCard;
+    private readonly Label        _lblValueCard;
 
     public StockForm()
     {
         Text          = "Stock";
         StartPosition = FormStartPosition.CenterParent;
-        ClientSize    = new Size(1120, 600);
+        // Opening size scales with DPI too, but never past the screen's work area.
+        var work      = Screen.PrimaryScreen?.WorkingArea.Size ?? new Size(1366, 728);
+        ClientSize    = new Size(Math.Min(Px(1120), work.Width - 40), Math.Min(Px(600), work.Height - 60));
         MinimumSize   = new Size(1000, 460);
         BackColor     = Theme.NormalGrey;
         Font          = new Font("Segoe UI", 10f);
 
-        var header = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = Theme.DarkGrey };
-        header.Controls.Add(new Label
+        // Header row: [Stock | ...... Types · Items · Stock Value | search]. The number
+        // boxes look like the dashboard's; on a narrow window they wrap onto a second line
+        // inside the header (which grows taller) instead of being cut off or overlapping.
+        var title = new Label
         {
             Text      = "Stock",
             ForeColor = Theme.TextOnDark,
             Font      = new Font("Segoe UI", 14f, FontStyle.Bold),
             AutoSize  = true,
-            Location  = new Point(20, 14)
-        });
+            Anchor    = AnchorStyles.Left,
+            Margin    = new Padding(0, 0, Px(20), 0)
+        };
 
         _txtSearch = new TextBox
         {
             Font        = new Font("Segoe UI", 10f),
             BorderStyle = BorderStyle.None,
             BackColor   = Color.White,
-            Location    = new Point(4, 5),
-            Width       = 212
+            Location    = new Point(Px(4), Px(5)),
+            Width       = Px(212)
         };
         _txtSearch.TextChanged += (_, _) => Reload();
 
         var searchHolder = new Panel
         {
             BackColor = Theme.DarkGold,
-            Size      = new Size(220, 30),
-            Location  = new Point(header.Width - 240, 13),
-            Anchor    = AnchorStyles.Top | AnchorStyles.Right
+            Size      = new Size(Px(220), _txtSearch.PreferredHeight + Px(10)),
+            Anchor    = AnchorStyles.Right,
+            Margin    = new Padding(Px(10), 0, 0, 0)
         };
         searchHolder.Controls.Add(_txtSearch);
-        header.Controls.Add(searchHolder);
-        header.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
+
+        // Narrower floor than the dashboard's boxes — the header shares its width with
+        // the title and search box, so they stay on one line on more window sizes.
+        _lblTypesCard = Theme.StatCard(this);
+        _lblItemsCard = Theme.StatCard(this);
+        _lblValueCard = Theme.StatCard(this);
+        foreach (var card in new[] { _lblTypesCard, _lblItemsCard, _lblValueCard })
+            card.MinimumSize = new Size(Px(120), card.MinimumSize.Height);
+
+        // Anchored Right (not docked) so the block of boxes hugs the search box, while
+        // the boxes keep their Types → Items → Value order when they wrap.
+        var cardsFlow = new FlowLayoutPanel
+        {
+            Anchor        = AnchorStyles.Right,
+            AutoSize      = true,
+            AutoSizeMode  = AutoSizeMode.GrowAndShrink,
+            WrapContents  = true,
+            BackColor     = Color.Transparent,
+            Margin        = new Padding(0)
+        };
+        cardsFlow.Controls.AddRange(new Control[] { _lblTypesCard, _lblItemsCard, _lblValueCard });
+
+        var headerRow = new TableLayoutPanel
+        {
+            Dock         = DockStyle.Top,
+            AutoSize     = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount  = 3,
+            RowCount     = 1,
+            BackColor    = Color.Transparent,
+            MinimumSize  = new Size(0, Px(56)),
+            Padding      = new Padding(Px(20), Px(6), Px(20), Px(6))
+        };
+        headerRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        headerRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        headerRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        headerRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        headerRow.Controls.Add(title, 0, 0);
+        headerRow.Controls.Add(cardsFlow, 1, 0);
+        headerRow.Controls.Add(searchHolder, 2, 0);
+
+        // Divider docked Top and added first so it always sits right under the row,
+        // however tall the row grows; the panel is sized to exactly the two of them.
+        var header = new Panel { Dock = DockStyle.Top, BackColor = Theme.DarkGrey };
+        var headerDivider = Theme.AccentDivider(DockStyle.Top);
+        header.Controls.Add(headerDivider);
+        header.Controls.Add(headerRow);
+        void FitHeader() => header.Height = headerRow.Height + headerDivider.Height;
+        headerRow.SizeChanged += (_, _) => FitHeader();
+        FitHeader();
         Controls.Add(header);
 
-        var footer = new Panel { Dock = DockStyle.Bottom, Height = 56, BackColor = Theme.DarkGrey };
+        var footer = new Panel { Dock = DockStyle.Bottom, Height = Px(56), BackColor = Theme.DarkGrey };
         footer.Controls.Add(Theme.AccentDivider(DockStyle.Top));
 
-        var btnAdd     = MakeButton("New Item",     Theme.NormalGrey,   Theme.TextOnNormal,       new Point(14, 11),  new Size(130, 33));
-        var btnEdit    = MakeButton("Edit",         Theme.NormalGrey,   Theme.TextOnNormal,       new Point(152, 11), new Size(92, 33));
-        var btnDelete  = MakeButton("Delete",       Theme.DeleteAccent, Theme.TextOnDeleteAccent, new Point(252, 11), new Size(92, 33));
-        var btnHistory = MakeButton("Sale History", Theme.DarkGrey,     Theme.TextOnDark,         new Point(352, 11), new Size(150, 33));
-        var btnClose   = MakeButton("Close",        Theme.NormalGrey,   Theme.TextOnNormal,       new Point(footer.Width - 114, 11), new Size(100, 33));
-        btnClose.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        var btnAdd     = MakeButton("New Item",     Theme.NormalGrey,   Theme.TextOnNormal,       130);
+        var btnEdit    = MakeButton("Edit",         Theme.NormalGrey,   Theme.TextOnNormal,       92);
+        var btnDelete  = MakeButton("Delete",       Theme.DeleteAccent, Theme.TextOnDeleteAccent, 92);
+        var btnHistory = MakeButton("Sale History", Theme.DarkGrey,     Theme.TextOnDark,         150);
+        var btnClose   = MakeButton("Close",        Theme.NormalGrey,   Theme.TextOnNormal,       100);
 
         Theme.SetIcon(btnAdd,     Theme.Glyph.Add);
         Theme.SetIcon(btnEdit,    Theme.Glyph.Edit);
@@ -69,19 +123,35 @@ public class StockForm : Form
         btnHistory.Click += (_, _) => { using var f = new StockHistoryForm(null); f.ShowDialog(this); };
         btnClose.Click   += (_, _) => Close();
 
-        footer.Controls.AddRange(new Control[] { btnAdd, btnEdit, btnDelete, btnHistory, btnClose });
-
-        _lblSummary = new Label
+        // [New | Edit | Delete | Sale History] .................... [Close]
+        var actions = new FlowLayoutPanel
         {
-            Font      = new Font("Segoe UI", 9.5f),
-            ForeColor = Theme.TextOnDark,
-            AutoSize  = false,
-            TextAlign = ContentAlignment.MiddleRight,
-            Location  = new Point(516, 11),
-            Size      = new Size(footer.Width - 516 - 128, 33),
-            Anchor    = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            AutoSize     = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = false,
+            BackColor    = Color.Transparent,
+            Anchor       = AnchorStyles.Left,
+            Margin       = new Padding(0)
         };
-        footer.Controls.Add(_lblSummary);
+        actions.Controls.AddRange(new Control[] { btnAdd, btnEdit, btnDelete, btnHistory });
+        btnClose.Anchor = AnchorStyles.Right;
+
+        var bar = new TableLayoutPanel
+        {
+            Dock        = DockStyle.Fill,
+            ColumnCount = 3,
+            RowCount    = 1,
+            BackColor   = Color.Transparent,
+            Padding     = new Padding(Px(10), Px(3), Px(10), 0)
+        };
+        bar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        bar.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        bar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        bar.Controls.Add(actions, 0, 0);
+        bar.Controls.Add(btnClose, 2, 0);
+        footer.Controls.Add(bar);
+        bar.BringToFront();
         Controls.Add(footer);
 
         _grid = new DataGridView
@@ -92,7 +162,7 @@ public class StockForm : Form
             AutoSizeColumnsMode       = DataGridViewAutoSizeColumnsMode.Fill,
             BackgroundColor           = Theme.NormalGrey,
             BorderStyle               = BorderStyle.None,
-            ColumnHeadersHeight       = 42,
+            ColumnHeadersHeight       = Px(42),
             MultiSelect               = false,
             ReadOnly                  = true,
             RowHeadersVisible         = false,
@@ -102,7 +172,8 @@ public class StockForm : Form
             EnableHeadersVisualStyles = false,
             Font                      = new Font("Segoe UI", 9.5f)
         };
-        _grid.RowTemplate.Height = 36;
+        _grid.RowTemplate.Height = Px(36);
+        _grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
         _grid.Columns.Add("colId",       "Id");
         _grid.Columns.Add("colType",     "Suit Type");
         _grid.Columns.Add("colColor",    "Color");
@@ -165,7 +236,9 @@ public class StockForm : Form
 
         var totalItems = items.Sum(i => i.Quantity);
         var totalValue = items.Sum(i => i.Quantity * i.PurchasePrice);
-        _lblSummary.Text = $"{items.Count} type(s)   |   {totalItems} item(s)   |   Stock value Rs {totalValue:N0}";
+        _lblTypesCard.Text = $"Types: {items.Count}";
+        _lblItemsCard.Text = $"Items: {totalItems}";
+        _lblValueCard.Text = $"Stock Value: Rs {totalValue:N0}";
     }
 
     private StockItem? Selected()
@@ -213,18 +286,25 @@ public class StockForm : Form
         Reload();
     }
 
-    private static Button MakeButton(string text, Color back, Color fore, Point location, Size size)
+    private int Px(int logical) => LogicalToDeviceUnits(logical);
+
+    // minWidth is the 100%-scaling width; the button still grows if its text + icon need more.
+    private Button MakeButton(string text, Color back, Color fore, int minWidth)
     {
         var btn = new Button
         {
-            Text      = text,
-            BackColor = back,
-            ForeColor = fore,
-            FlatStyle = FlatStyle.Flat,
-            Font      = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-            Location  = location,
-            Size      = size,
-            Cursor    = Cursors.Hand,
+            Text         = text,
+            BackColor    = back,
+            ForeColor    = fore,
+            FlatStyle    = FlatStyle.Flat,
+            Font         = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+            MinimumSize  = new Size(Px(minWidth), Px(33)),
+            AutoSize     = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Padding      = new Padding(Px(6), 0, Px(6), 0),
+            Margin       = new Padding(Px(4), 0, Px(4), 0),
+            Anchor       = AnchorStyles.Left,
+            Cursor       = Cursors.Hand,
             UseVisualStyleBackColor = false
         };
         btn.FlatAppearance.BorderSize  = 2;

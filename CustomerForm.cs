@@ -45,6 +45,22 @@ public partial class CustomerForm : Form {
         Theme.SetIcon(btnCancel, Theme.Glyph.Cancel);
         Theme.PaintFieldBorders(tabInfo, txtSerial, txtName, txtPhone, txtAddress, txtNotes);
         panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
+
+        // Save / Cancel in a flow of AutoSize buttons. This form was designed at 150%, so on
+        // a 100% screen the designer shrinks the buttons more than the text and they
+        // clipped to "Save" (icon pushed under the text) and "Canc".
+        var bottomBar = new FlowLayoutPanel {
+            Dock = DockStyle.Fill,
+            WrapContents = false,
+            BackColor = Color.Transparent,
+            Padding = new Padding(Px(10), Px(8), Px(10), Px(4))
+        };
+        foreach (var (btn, minWidth) in new[] { (btnSave, 155), (btnCancel, 90) }) {
+            panelBottom.Controls.Remove(btn);
+            FitToolbarButton(btn, minWidth, 34);
+            bottomBar.Controls.Add(btn);
+        }
+        panelBottom.Controls.Add(bottomBar);
         panelBottom.Controls.Add(Theme.AccentDivider(DockStyle.Top));
         Shown += (_, _) => Theme.CenterButtons(this);
     }
@@ -83,11 +99,15 @@ public partial class CustomerForm : Form {
 
         Action? posRelayout = null;
 
-        // Bottom toolbar panel
-        var toolbar = new Panel {
+        // Bottom toolbar: a flow of AutoSize buttons, so at 125%/150% Windows scaling
+        // the text + icon never get clipped ("New" with its icon pushed down).
+        var toolbar = new FlowLayoutPanel {
             Dock = DockStyle.Bottom,
-            Height = 44,
-            BackColor = Theme.DarkGrey
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = true,
+            BackColor = Theme.DarkGrey,
+            Padding = new Padding(Px(8), Px(6), Px(8), Px(6))
         };
 
         var btnAddField = new Button {
@@ -96,10 +116,9 @@ public partial class CustomerForm : Form {
             ForeColor = Theme.TextOnNormal,
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-            Size = new Size(130, 32),
-            Location = new Point(12, 6),
             Cursor = Cursors.Hand
         };
+        FitToolbarButton(btnAddField, 130, 32);
         btnAddField.FlatAppearance.BorderSize = 0;
         Theme.ApplyLightHover(btnAddField);
         Theme.SetIcon(btnAddField, Theme.Glyph.Add);
@@ -123,10 +142,9 @@ public partial class CustomerForm : Form {
             ForeColor = Theme.TextOnNormal,
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-            Size = new Size(90, 32),
-            Location = new Point(150, 6),
             Cursor = Cursors.Hand
         };
+        FitToolbarButton(btnPrint, 90, 32);
         btnPrint.FlatAppearance.BorderSize = 0;
         Theme.ApplyLightHover(btnPrint);
         Theme.SetIcon(btnPrint, Theme.Glyph.Print);
@@ -144,11 +162,10 @@ public partial class CustomerForm : Form {
                 ForeColor = Theme.TextOnGold,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                Size = new Size(110, 32),
-                Location = new Point(250, 6),
                 Cursor = Cursors.Hand,
                 Visible = false
             };
+            FitToolbarButton(btnNewSlip, 110, 32);
             btnNewSlip.FlatAppearance.BorderSize = 0;
             btnNewSlip.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGold);
             Theme.SetIcon(btnNewSlip, Theme.Glyph.Add);
@@ -223,9 +240,9 @@ public partial class CustomerForm : Form {
             Text = def.Name,
             Tag = "field",
             AutoSize = false,
-            Location = new Point(cursorX, RowFieldTop + (RowFieldHeight - 34) / 2),
+            Location = new Point(cursorX, RowFieldTop + 1),
             Width = 190,
-            Height = 34,
+            Height = RowFieldHeight - 2, // fills the painted band so the ink has room
             Font = new Font("Urdu Typesetting", 12f),
             ForeColor = Theme.TextOnNormal,
             RightToLeft = RightToLeft.Yes,
@@ -234,6 +251,7 @@ public partial class CustomerForm : Form {
             BackColor = Theme.NormalGrey,
             PlaceholderText = "Field ka naam..."
         };
+        Theme.CenterUrduInk(txtField);
         row.Controls.Add(txtField);
         bordered.Add(txtField);
         cursorX += txtField.Width + 12;
@@ -245,7 +263,7 @@ public partial class CustomerForm : Form {
             stockCombo = new ComboBox {
                 Tag = StockComboTag,
                 Location = new Point(cursorX, RowFieldTop + 1),
-                Size = new Size(200, RowFieldHeight - 2),
+                Size = new Size(Px(200), RowFieldHeight - 2),
                 Font = new Font("Segoe UI", 9.5f),
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 FlatStyle = FlatStyle.Flat,
@@ -324,7 +342,7 @@ public partial class CustomerForm : Form {
                 Text = quantity ?? "",
                 Tag = "qty",
                 Location = new Point(cursorX, BandCentre - LatinInkCentre),
-                Width = 50,
+                Width = Px(56),
                 Font = ValueFont,
                 BorderStyle = BorderStyle.None,
                 BackColor = Theme.NormalGrey,
@@ -355,7 +373,7 @@ public partial class CustomerForm : Form {
                 Text = value,
                 Tag = "value",
                 Location = new Point(cursorX, BandCentre - LatinInkCentre),
-                Width = 90,
+                Width = Px(90),
                 Font = ValueFont,
                 BorderStyle = BorderStyle.None,
                 BackColor = Theme.NormalGrey,
@@ -380,7 +398,7 @@ public partial class CustomerForm : Form {
 
                 var cmbVal = new ComboBox {
                     Location = new Point(cursorX, RowFieldTop + 1),
-                    Size = new Size(110, RowFieldHeight - 2),
+                    Size = new Size(Px(110), RowFieldHeight - 2),
                     Font = ValueFont,
                     DropDownStyle = ComboBoxStyle.DropDownList,
                     FlatStyle = FlatStyle.Flat,
@@ -461,11 +479,9 @@ public partial class CustomerForm : Form {
 
         if (showCheckboxes) {
             foreach (var opt in def.Options) {
-                var cb = new CheckBox {
+                var cb = new UrduChip {
                     Text = opt,
                     Checked = selectedOptions.Contains(opt),
-                    Appearance = Appearance.Button,
-                    FlatStyle = FlatStyle.Flat,
                     AutoSize = false,
                     Height = 40,
                     TextAlign = ContentAlignment.MiddleCenter,
@@ -588,8 +604,11 @@ public partial class CustomerForm : Form {
             RightToLeft = RightToLeft.Yes,
             TextAlign = HorizontalAlignment.Right,
             BorderStyle = BorderStyle.None,
-            BackColor = accent
+            BackColor = accent,
+            AutoSize = false,
+            Height = 38
         };
+        Theme.CenterUrduInk(lblName);
         row.Controls.Add(lblName);
         cursorX += lblName.Width + 12;
 
@@ -774,29 +793,45 @@ public partial class CustomerForm : Form {
     public static decimal ComputePosBaaqaya(List<Measurement> posMeasurements) =>
         ComputePosTotal(posMeasurements) - ComputePosPaid(posMeasurements);
 
+    // 96-DPI logical pixels → this monitor's pixels. Controls built in code after
+    // InitializeComponent are not auto-scaled, so their sizes go through this.
+    private int Px(int logical) => LogicalToDeviceUnits(logical);
+
+    // Toolbar buttons grow to fit text + icon; the given size (at 100% scaling) is a floor.
+    private void FitToolbarButton(Button btn, int minWidth, int minHeight) {
+        btn.MinimumSize = new Size(Px(minWidth), Px(minHeight));
+        btn.AutoSize = true;
+        btn.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        btn.Padding = new Padding(Px(6), 0, Px(6), 0);
+        btn.Margin = new Padding(Px(4), 0, Px(4), 0);
+    }
+
     private (Panel Outer, Panel Body, FlowLayoutPanel Inner, Action Relayout) BuildCollapsibleBar(
         FlowLayoutPanel outerScroll, string label, bool startExpanded, Color? headerColor = null) {
-        var outer = new Panel { Height = 36, Margin = new Padding(0, 0, 0, 6), BackColor = Theme.NormalGrey };
+        var outer = new Panel { Height = Px(36), Margin = new Padding(0, 0, 0, 6), BackColor = Theme.NormalGrey };
 
-        var header = new Panel { Dock = DockStyle.Top, Height = 36, BackColor = headerColor ?? Theme.DarkGrey, Cursor = Cursors.Hand };
+        var header = new Panel { Dock = DockStyle.Top, Height = Px(36), BackColor = headerColor ?? Theme.DarkGrey, Cursor = Cursors.Hand };
         var lblChevron = new Label {
             Text = startExpanded ? "▾" : "▸",
             ForeColor = Theme.TextOnDark,
             AutoSize = true,
-            Location = new Point(12, 9),
             Font = new Font("Segoe UI", 10f, FontStyle.Bold)
         };
         var lblLabel = new Label {
             Text = label,
             ForeColor = Theme.TextOnDark,
             AutoSize = true,
-            Location = new Point(32, 8),
             Font = new Font("Segoe UI", 10f, FontStyle.Bold)
         };
         header.Controls.Add(lblChevron);
         header.Controls.Add(lblLabel);
 
-        var body = new Panel { Location = new Point(0, 36), BackColor = Theme.NormalGrey, Visible = startExpanded };
+        // Label goes right after the chevron's real (DPI-scaled) width — at a fixed x it
+        // overlapped the chevron at 150% scaling and hid the first digit of the date.
+        lblChevron.Location = new Point(Px(12), (header.Height - lblChevron.Height) / 2);
+        lblLabel.Location = new Point(lblChevron.Right + Px(4), (header.Height - lblLabel.Height) / 2);
+
+        var body = new Panel { Location = new Point(0, header.Height), BackColor = Theme.NormalGrey, Visible = startExpanded };
 
         var inner = new FlowLayoutPanel {
             Location = new Point(0, 0),
@@ -857,17 +892,22 @@ public partial class CustomerForm : Form {
         var dateText = DateTime.TryParse(pastOrder.CreatedAt, out var dt) ? dt.ToString("dd MMM yyyy") : "";
         var (outer, body, barScroll, relayout) = BuildCollapsibleBar(panel, dateText, startExpanded: false, headerColor: Theme.RowAlt);
 
-        var barToolbar = new Panel { Height = 40, BackColor = Theme.RowAlt };
+        var barToolbar = new FlowLayoutPanel {
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = false,
+            BackColor = Theme.RowAlt,
+            Padding = new Padding(Px(6), Px(5), Px(6), Px(5))
+        };
         var btnAddField = new Button {
             Text = "Add Field",
             BackColor = Theme.NormalGrey,
             ForeColor = Theme.TextOnNormal,
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-            Size = new Size(120, 28),
-            Location = new Point(10, 6),
             Cursor = Cursors.Hand
         };
+        FitToolbarButton(btnAddField, 120, 28);
         btnAddField.FlatAppearance.BorderSize = 0;
         Theme.ApplyLightHover(btnAddField);
         Theme.SetIcon(btnAddField, Theme.Glyph.Add);
@@ -879,10 +919,9 @@ public partial class CustomerForm : Form {
             ForeColor = Theme.TextOnNormal,
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-            Size = new Size(120, 28),
-            Location = new Point(140, 6),
             Cursor = Cursors.Hand
         };
+        FitToolbarButton(btnUpdate, 120, 28);
         btnUpdate.FlatAppearance.BorderSize = 0;
         Theme.ApplyLightHover(btnUpdate);
         Theme.SetIcon(btnUpdate, Theme.Glyph.Save);
@@ -894,7 +933,7 @@ public partial class CustomerForm : Form {
 
         void PositionToolbar() {
             barToolbar.Location = new Point(0, barScroll.Bottom + 4);
-            barToolbar.Width = barScroll.Width;
+            barToolbar.MinimumSize = new Size(barScroll.Width, 0); // full-width strip; height follows the buttons
         }
 
         void OnBarChanged() {

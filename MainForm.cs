@@ -13,16 +13,18 @@ public partial class MainForm : Form {
     private Label _lblStockCard = null!;
     private Label _lblRemainingCard = null!;
     private Label _lblUnstitchedCard = null!;
+    private TableLayoutPanel _toolbarRow = null!;
+    private FlowLayoutPanel _cardsFlow = null!;
+    private FlowLayoutPanel _actionsFlow = null!;
 
     public MainForm() {
         InitializeComponent();
         Database.Initialize();
         ApplyGridStyles();
         ApplyPolish();
-        BuildBackupButton();
-        BuildStockButton();
-        BuildSaleHistoryButton();
+        BuildToolbarLayout();
         BuildSummaryCards();
+        BuildActionButtons();
         WireEvents();
         LoadCustomers();
         Task.Run(Backup.RunIfDue);
@@ -34,6 +36,10 @@ public partial class MainForm : Form {
         FormClosing += (_, _) => WhatsAppProcess.Stop();
         Shown += (_, _) => Theme.CenterButtons(this);
     }
+
+    // Every size below is in 96-DPI logical pixels; Px() scales it to the monitor's
+    // DPI so the layout looks the same at 100%, 125%, 150%... Windows scaling.
+    private int Px(int logical) => LogicalToDeviceUnits(logical);
 
     private void ApplyPolish() {
         foreach (var btn in new[] { btnSearch, btnClear, btnAdd, btnEdit, btnDelete, btnRelinkWhatsApp })
@@ -48,116 +54,326 @@ public partial class MainForm : Form {
         foreach (var btn in new[] { btnSearch, btnClear, btnAdd, btnEdit })
             Theme.ApplyLightHover(btn);
 
-        WrapWithBorder(txtSearch, Theme.DarkGold);
-        BuildAppLogo();
-        BuildAppTitle();
-        BuildHeaderBrand();
+        BuildHeaderLayout();
+        BuildBottomLayout();
 
         panelHeader.Controls.Add(Theme.AccentDivider(DockStyle.Bottom));
         panelBottom.Controls.Add(Theme.AccentDivider(DockStyle.Top));
     }
 
-    private void BuildBackupButton() {
-        var btnBackup = new Button {
-            Text = "  Backup & Restore",
-            BackColor = Theme.DarkGrey,
-            ForeColor = Theme.TextOnDark,
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            Size = new Size(190, 32),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            Location = new Point(btnRelinkWhatsApp.Left - 200, btnRelinkWhatsApp.Top),
-            Cursor = Cursors.Hand,
-            UseVisualStyleBackColor = false,
-            TextImageRelation = TextImageRelation.ImageBeforeText
-        };
-        btnBackup.FlatAppearance.BorderSize = 2;
-        btnBackup.FlatAppearance.BorderColor = Theme.DarkGold;
-        btnBackup.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
-        Theme.RoundCorners(btnBackup, 6);
-        Theme.SetIcon(btnBackup, Theme.Glyph.Backup);
-        btnBackup.Click += BtnBackup_Click;
-
-        panelSearch.Controls.Add(btnBackup);
-        btnBackup.BringToFront();
+    // Buttons grow to fit their text + icon instead of clipping it; the designer
+    // size is kept as a floor so wide screens look exactly as before.
+    private static void MakeAutoSize(Button btn) {
+        btn.MinimumSize = btn.Size;
+        btn.AutoSize = true;
+        btn.AutoSizeMode = AutoSizeMode.GrowAndShrink;
     }
 
-    private void BuildStockButton() {
-        var btnStock = new Button {
-            Text = "  Stock",
-            BackColor = Theme.DarkGrey,
-            ForeColor = Theme.TextOnDark,
-            FlatStyle = FlatStyle.Flat,
-            Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            Size = new Size(110, 32),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            Location = new Point(btnRelinkWhatsApp.Left - 200 - 120, btnRelinkWhatsApp.Top),
-            Cursor = Cursors.Hand,
-            UseVisualStyleBackColor = false,
-            TextImageRelation = TextImageRelation.ImageBeforeText
-        };
-        btnStock.FlatAppearance.BorderSize = 2;
-        btnStock.FlatAppearance.BorderColor = Theme.DarkGold;
-        btnStock.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
-        Theme.RoundCorners(btnStock, 6);
-        Theme.SetIcon(btnStock, Theme.Glyph.Stock);
-        btnStock.Click += (_, _) => { using var f = new StockForm(); f.ShowDialog(this); LoadCustomers(txtSearch.Text); };
+    // ── Header: [app logo | centered title | Koder Bench brand] ─────────────────
+    private void BuildHeaderLayout() {
+        panelHeader.MinimumSize = new Size(0, panelHeader.Height);
+        panelHeader.AutoSize = true;
+        panelHeader.AutoSizeMode = AutoSizeMode.GrowAndShrink;
 
-        panelSearch.Controls.Add(btnStock);
-        btnStock.BringToFront();
+        var left = BuildAppLogo();
+        var title = BuildAppTitle();
+        var brand = BuildHeaderBrand();
+
+        var header = new TableLayoutPanel {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 3,
+            RowCount = 1,
+            BackColor = Color.Transparent,
+            Padding = new Padding(Px(14), Px(4), Px(14), Px(4))
+        };
+        // Both side columns get the same width so the title stays centered on the
+        // window, not just within whatever space is left between logo and brand.
+        // (A Zoom PictureBox reports its image's native size as "preferred", so only
+        // ask AutoSize controls for that — fixed-size ones just use their Width.)
+        static int SlotWidth(Control c) => c.AutoSize ? c.GetPreferredSize(Size.Empty).Width : c.Width;
+        var side = Math.Max(SlotWidth(left), SlotWidth(brand));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, side));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, side));
+        header.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        header.Controls.Add(left, 0, 0);
+        header.Controls.Add(title, 1, 0);
+        header.Controls.Add(brand, 2, 0);
+        header.SizeChanged += (_, _) =>
+            FitTitleFont(title, header.ClientSize.Width - header.Padding.Horizontal - 2 * side);
+
+        panelHeader.Controls.Remove(lblTitle);
+        panelHeader.Controls.Remove(lblSubtitle);
+        panelHeader.Controls.Add(header);
     }
 
-    private void BuildSaleHistoryButton() {
-        var btnSaleHistory = new Button {
-            Text = "  Sale History",
+    private Control BuildAppLogo() {
+        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "NationalTailor_Logo.png");
+        if (File.Exists(logoPath)) {
+            try {
+                using var fs = new FileStream(logoPath, FileMode.Open, FileAccess.Read);
+                var logo = Image.FromStream(fs);
+                return new PictureBox {
+                    Image = new Bitmap(logo),
+                    SizeMode = PictureBoxSizeMode.Zoom,
+                    BackColor = Color.Transparent,
+                    Size = new Size(Px(260), Px(72)),
+                    Anchor = AnchorStyles.Left,
+                    Margin = new Padding(0)
+                };
+            }
+            catch { }
+        }
+
+        // No logo file: fall back to the designer's text title + subtitle.
+        var fallback = new FlowLayoutPanel {
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = Color.Transparent,
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(0)
+        };
+        lblTitle.Margin = new Padding(0);
+        lblSubtitle.Margin = new Padding(Px(2), 0, 0, 0);
+        fallback.Controls.Add(lblTitle);
+        fallback.Controls.Add(lblSubtitle);
+        return fallback;
+    }
+
+    private const float TitleMaxFontSize = 26f, TitleMinFontSize = 12f;
+
+    private Label BuildAppTitle() => new Label {
+        Text = "Tailor Shop",
+        Font = new Font("Segoe UI", TitleMaxFontSize, FontStyle.Bold),
+        ForeColor = Theme.DarkGold,
+        BackColor = Color.Transparent,
+        TextAlign = ContentAlignment.MiddleCenter,
+        AutoSize = false,
+        Dock = DockStyle.Fill,
+        Margin = new Padding(0),
+        MinimumSize = new Size(0, Px(62))
+    };
+
+    // On a narrow window the space between logo and brand shrinks, so step the
+    // font down until the whole title fits instead of cutting it to "Tail...".
+    private static void FitTitleFont(Label title, int available) {
+        if (available <= 0) return;
+        var size = TitleMaxFontSize;
+        while (size > TitleMinFontSize) {
+            using var probe = new Font("Segoe UI", size, FontStyle.Bold);
+            if (TextRenderer.MeasureText(title.Text, probe).Width <= available) break;
+            size -= 1f;
+        }
+        if (Math.Abs(title.Font.Size - size) < 0.1f) return;
+        var old = title.Font;
+        title.Font = new Font("Segoe UI", size, FontStyle.Bold);
+        old.Dispose();
+    }
+
+    private Control BuildHeaderBrand() {
+        var brand = new TableLayoutPanel {
+            ColumnCount = 2,
+            RowCount = 2,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = Color.Transparent,
+            Anchor = AnchorStyles.Right,
+            Margin = new Padding(0)
+        };
+        brand.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        brand.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        brand.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        brand.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+
+        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "TheKoderBench_Logo_White.png");
+        if (File.Exists(logoPath)) {
+            try {
+                using var fs = new FileStream(logoPath, FileMode.Open, FileAccess.Read);
+                using var raw = Image.FromStream(fs);
+                using var trimmed = Theme.TrimUniformMargins(raw);
+                var pic = new PictureBox {
+                    Image = Theme.ToSilhouette(trimmed, Theme.DarkGold),
+                    SizeMode = PictureBoxSizeMode.Zoom,
+                    BackColor = Color.Transparent,
+                    Size = new Size(Px(62), Px(56)),
+                    Anchor = AnchorStyles.None,
+                    Margin = new Padding(0, 0, Px(2), 0)
+                };
+                brand.Controls.Add(pic, 0, 0);
+                brand.SetRowSpan(pic, 2);
+            }
+            catch { }
+        }
+
+        // AutoSize labels are measured at the current DPI, so the text can never be cut off.
+        brand.Controls.Add(new Label {
+            Text = "The Koder Bench",
+            Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+            ForeColor = Theme.DarkGold,
+            BackColor = Color.Transparent,
+            AutoSize = true,
+            Anchor = AnchorStyles.Left | AnchorStyles.Bottom,
+            Margin = new Padding(0)
+        }, 1, 0);
+
+        brand.Controls.Add(new Label {
+            Text = "BUILD  ·  TRUST  ·  SOLVE",
+            Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+            ForeColor = Theme.DarkGold,
+            BackColor = Color.Transparent,
+            AutoSize = true,
+            Anchor = AnchorStyles.Left | AnchorStyles.Top,
+            Margin = new Padding(Px(1), Px(2), 0, 0)
+        }, 1, 1);
+
+        return brand;
+    }
+
+    // ── Toolbar: [summary cards ......... action buttons] / divider / search row ──
+    private void BuildToolbarLayout() {
+        var search = new FlowLayoutPanel {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = true,
+            BackColor = Color.Transparent,
+            Padding = new Padding(Px(14), Px(8), Px(14), Px(8))
+        };
+
+        var searchBox = WrapWithBorder(txtSearch, Theme.DarkGold);
+        MakeAutoSize(btnSearch);
+        MakeAutoSize(btnClear);
+        foreach (Control c in new Control[] { lblSearch, searchBox, btnSearch, btnClear }) {
+            panelSearch.Controls.Remove(c);
+            c.Anchor = AnchorStyles.Left; // no Top/Bottom → vertically centered in the flow row
+            c.Margin = new Padding(Px(4), Px(3), Px(4), Px(3));
+            search.Controls.Add(c);
+        }
+
+        _cardsFlow = new FlowLayoutPanel {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = true,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0)
+        };
+        _actionsFlow = new FlowLayoutPanel {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = true,
+            FlowDirection = FlowDirection.RightToLeft,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0)
+        };
+
+        _toolbarRow = new TableLayoutPanel {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            RowCount = 1,
+            BackColor = Color.Transparent,
+            Padding = new Padding(Px(14), Px(8), Px(14), Px(8))
+        };
+        _toolbarRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        _toolbarRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        _toolbarRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        _toolbarRow.Controls.Add(_cardsFlow, 0, 0);
+        _toolbarRow.Controls.Add(_actionsFlow, 1, 0);
+
+        dividerSearch.Dock = DockStyle.Top;
+        dividerSearch.Height = Px(3);
+
+        // Docked controls stack in reverse add order: the last one added sits on top.
+        panelSearch.Controls.Clear();
+        panelSearch.Controls.Add(search);
+        panelSearch.Controls.Add(dividerSearch);
+        panelSearch.Controls.Add(_toolbarRow);
+
+        // Panel.AutoSize doesn't track wrapping children reliably, so size it to
+        // exactly the stacked rows whenever one of them grows or shrinks.
+        void FitHeight() => panelSearch.Height = _toolbarRow.Height + dividerSearch.Height + search.Height;
+        _toolbarRow.SizeChanged += (_, _) => FitHeight();
+        search.SizeChanged += (_, _) => FitHeight();
+        FitHeight();
+    }
+
+    // Split the toolbar width between cards and buttons in proportion to how wide
+    // each wants to be: on a wide window both fit on one line, on a narrow one
+    // each side wraps onto extra lines instead of overlapping the other.
+    private void BalanceToolbarColumns() {
+        var cards = _cardsFlow.GetPreferredSize(Size.Empty).Width;
+        var actions = _actionsFlow.GetPreferredSize(Size.Empty).Width;
+        if (cards + actions == 0) return;
+        _toolbarRow.ColumnStyles[0].Width = cards;
+        _toolbarRow.ColumnStyles[1].Width = actions;
+    }
+
+    private Button MakeToolbarButton(string text, Theme.Glyph glyph, EventHandler onClick) {
+        var btn = new Button {
+            Text = text,
             BackColor = Theme.DarkGrey,
             ForeColor = Theme.TextOnDark,
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            Size = new Size(150, 32),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            Location = new Point(btnRelinkWhatsApp.Left - 200 - 120 - 160, btnRelinkWhatsApp.Top),
             Cursor = Cursors.Hand,
             UseVisualStyleBackColor = false,
             TextImageRelation = TextImageRelation.ImageBeforeText
         };
-        btnSaleHistory.FlatAppearance.BorderSize = 2;
-        btnSaleHistory.FlatAppearance.BorderColor = Theme.DarkGold;
-        btnSaleHistory.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
-        Theme.RoundCorners(btnSaleHistory, 6);
-        Theme.SetIcon(btnSaleHistory, Theme.Glyph.History);
-        btnSaleHistory.Click += (_, _) => { using var f = new StockHistoryForm(null); f.ShowDialog(this); };
+        btn.FlatAppearance.BorderSize = 2;
+        btn.FlatAppearance.BorderColor = Theme.DarkGold;
+        btn.FlatAppearance.MouseOverBackColor = Theme.Hover(Theme.DarkGrey);
+        StyleToolbarButton(btn);
+        Theme.RoundCorners(btn, 6);
+        Theme.SetIcon(btn, glyph);
+        btn.Click += onClick;
+        return btn;
+    }
 
-        panelSearch.Controls.Add(btnSaleHistory);
-        btnSaleHistory.BringToFront();
+    private void StyleToolbarButton(Button btn) {
+        btn.Anchor = AnchorStyles.None;
+        btn.Padding = new Padding(Px(8), 0, Px(8), 0);
+        btn.Margin = new Padding(Px(5), Px(3), Px(5), Px(3));
+        btn.MinimumSize = new Size(0, Px(32));
+        btn.AutoSize = true;
+        btn.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+    }
+
+    private void BuildActionButtons() {
+        StyleToolbarButton(btnRelinkWhatsApp);
+        // The designer's chat icon is a fixed 16px bitmap; draw it at this DPI like the others.
+        btnRelinkWhatsApp.Image = Theme.CreateChatBubbleIcon(btnRelinkWhatsApp.ForeColor, Px(16));
+
+        // Right-to-left flow: the first one added ends up right-most.
+        _actionsFlow.Controls.Add(btnRelinkWhatsApp);
+        _actionsFlow.Controls.Add(MakeToolbarButton("  Backup && Restore", Theme.Glyph.Backup, BtnBackup_Click));
+        _actionsFlow.Controls.Add(MakeToolbarButton("  Stock", Theme.Glyph.Stock,
+            (_, _) => { using var f = new StockForm(); f.ShowDialog(this); LoadCustomers(txtSearch.Text); }));
+        _actionsFlow.Controls.Add(MakeToolbarButton("  Sale History", Theme.Glyph.History,
+            (_, _) => { using var f = new StockHistoryForm(null); f.ShowDialog(this); }));
+
+        BalanceToolbarColumns();
     }
 
     private void BuildSummaryCards() {
-        _lblStockCard      = MakeSummaryCard(new Point(20, 13), 230);
-        _lblRemainingCard  = MakeSummaryCard(new Point(260, 13), 230);
-        _lblUnstitchedCard = MakeSummaryCard(new Point(500, 13), 230);
+        _lblStockCard      = MakeSummaryCard();
+        _lblRemainingCard  = MakeSummaryCard();
+        _lblUnstitchedCard = MakeSummaryCard();
 
-        panelSearch.Controls.Add(_lblStockCard);
-        panelSearch.Controls.Add(_lblRemainingCard);
-        panelSearch.Controls.Add(_lblUnstitchedCard);
-        _lblStockCard.BringToFront();
-        _lblRemainingCard.BringToFront();
-        _lblUnstitchedCard.BringToFront();
+        _cardsFlow.Controls.Add(_lblStockCard);
+        _cardsFlow.Controls.Add(_lblRemainingCard);
+        _cardsFlow.Controls.Add(_lblUnstitchedCard);
 
         RefreshSummaryCards(0m);
     }
 
-    private static Label MakeSummaryCard(Point location, int width) {
-        return new Label {
-            BackColor = Theme.Hover(Theme.DarkGrey),
-            ForeColor = Theme.TextOnDark,
-            Font      = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-            TextAlign = ContentAlignment.MiddleCenter,
-            Location  = location,
-            Size      = new Size(width, 32),
-            AutoEllipsis = true
-        };
-    }
+    private Label MakeSummaryCard() => Theme.StatCard(this);
 
     private void RefreshSummaryCards(decimal totalRemaining, int unstitchedQty = 0) {
         var stockItems = Database.GetStockItems();
@@ -165,6 +381,7 @@ public partial class MainForm : Form {
         _lblStockCard.Text = $"Stock Items: {stockItems.Count}   |   Qty: {totalStockQty}";
         _lblRemainingCard.Text = $"Remaining Total: Rs {totalRemaining:N0}";
         _lblUnstitchedCard.Text = $"Unstitched Suits: {unstitchedQty}";
+        BalanceToolbarColumns();
     }
 
     private void BtnBackup_Click(object? sender, EventArgs e) {
@@ -176,105 +393,26 @@ public partial class MainForm : Form {
         }
     }
 
-    private void BuildAppLogo() {
-        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "NationalTailor_Logo.png");
-        if (!File.Exists(logoPath)) return;
-
-        try {
-            using var fs = new FileStream(logoPath, FileMode.Open, FileAccess.Read);
-            var logo = Image.FromStream(fs);
-
-            lblTitle.Visible = false;
-            lblSubtitle.Visible = false;
-
-            panelHeader.Controls.Add(new PictureBox {
-                Image = new Bitmap(logo),
-                SizeMode = PictureBoxSizeMode.Zoom,
-                BackColor = Color.Transparent,
-                Location = new Point(20, 4),
-                Size = new Size(260, 72)
-            });
-        }
-        catch { }
-    }
-
-    private void BuildAppTitle() {
-        var title = new Label {
-            Text = "Tailor Shop",
-            Font = new Font("Segoe UI", 26f, FontStyle.Bold),
-            ForeColor = Theme.DarkGold,
+    // ── Bottom bar: New / Edit / Delete / status ────────────────────────────────
+    private void BuildBottomLayout() {
+        var bar = new FlowLayoutPanel {
+            Dock = DockStyle.Fill,
+            WrapContents = false,
             BackColor = Color.Transparent,
-            TextAlign = ContentAlignment.MiddleCenter,
-            AutoSize = false,
-            Size = new Size(320, 62),
-            Location = new Point(0, 6)
+            Padding = new Padding(Px(10), Px(6), Px(10), Px(4))
         };
-
-        panelHeader.Controls.Add(title);
-        title.BringToFront();
-
-        void PositionTitle() => title.Left = (panelHeader.ClientSize.Width - title.Width) / 2;
-        PositionTitle();
-        panelHeader.Resize += (_, _) => PositionTitle();
-    }
-
-    private void BuildHeaderBrand() {
-        var brand = new Panel {
-            Size = new Size(238, 72),
-            Location = new Point(0, 4),
-            BackColor = Color.Transparent
-        };
-
-        var logoPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "TheKoderBench_Logo_White.png");
-        if (File.Exists(logoPath)) {
-            try {
-                using var fs = new FileStream(logoPath, FileMode.Open, FileAccess.Read);
-                using var raw = Image.FromStream(fs);
-                using var trimmed = Theme.TrimUniformMargins(raw);
-                brand.Controls.Add(new PictureBox {
-                    Image = Theme.ToSilhouette(trimmed, Theme.DarkGold),
-                    SizeMode = PictureBoxSizeMode.Zoom,
-                    BackColor = Color.Transparent,
-                    Location = new Point(0, 8),
-                    Size = new Size(62, 56)
-                });
-            }
-            catch { }
+        foreach (var btn in new[] { btnAdd, btnEdit, btnDelete }) MakeAutoSize(btn);
+        foreach (Control c in new Control[] { btnAdd, btnEdit, btnDelete, lblStatus }) {
+            panelBottom.Controls.Remove(c);
+            c.Anchor = AnchorStyles.Left;
+            c.Margin = new Padding(Px(4), Px(3), Px(4), Px(3));
+            bar.Controls.Add(c);
         }
-
-        brand.Controls.Add(new Label {
-            Text = "The Koder Bench",
-            Font = new Font("Segoe UI", 11f, FontStyle.Bold),
-            ForeColor = Theme.DarkGold,
-            BackColor = Color.Transparent,
-            TextAlign = ContentAlignment.BottomLeft,
-            Location = new Point(64, 16),
-            Size = new Size(174, 22)
-        });
-
-        brand.Controls.Add(new Label {
-            Text = "BUILD  ·  TRUST  ·  SOLVE",
-            Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
-            ForeColor = Theme.DarkGold,
-            BackColor = Color.Transparent,
-            TextAlign = ContentAlignment.TopLeft,
-            Location = new Point(64, 40),
-            Size = new Size(174, 16)
-        });
-
-        panelHeader.Controls.Add(brand);
-        brand.BringToFront();
-
-        void PositionBrand() => brand.Left = panelHeader.ClientSize.Width - brand.Width - 20;
-        PositionBrand();
-        panelHeader.Resize += (_, _) => PositionBrand();
+        lblStatus.Margin = new Padding(Px(12), Px(3), Px(4), Px(3));
+        panelBottom.Controls.Add(bar);
     }
 
-    private static void WrapWithBorder(TextBox box, Color color, int thickness = 1) {
-        var parent = box.Parent;
-        if (parent == null) return;
-
-        var origin = box.Location;
+    private static Panel WrapWithBorder(TextBox box, Color color, int thickness = 1) {
         var width = box.Width;
 
         box.BorderStyle = BorderStyle.None;
@@ -282,15 +420,14 @@ public partial class MainForm : Form {
 
         var holder = new Panel {
             BackColor = color,
-            Location = origin,
             Size = new Size(width + thickness * 2, inner + thickness * 2 + 6)
         };
 
-        parent.Controls.Remove(box);
+        box.Parent?.Controls.Remove(box);
         box.Location = new Point(thickness, thickness + 3);
         box.Width = width;
         holder.Controls.Add(box);
-        parent.Controls.Add(holder);
+        return holder;
     }
 
     private void ApplyGridStyles() {
@@ -301,6 +438,10 @@ public partial class MainForm : Form {
         grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = Theme.TextOnDark;
         grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
         grid.ColumnHeadersDefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
+        grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.False;
+        // DataGridView doesn't DPI-scale its row heights, so scale the designer values here.
+        grid.ColumnHeadersHeight = Px(42);
+        grid.RowTemplate.Height = Px(36);
         grid.DefaultCellStyle.BackColor = Theme.NormalGrey;
         grid.DefaultCellStyle.ForeColor = Theme.TextOnNormal;
         grid.DefaultCellStyle.SelectionBackColor = Theme.DeleteAccent;

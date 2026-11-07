@@ -122,6 +122,7 @@ public class LicenseForm : Form
         Controls.Add(btnExit);
 
         AcceptButton = btnActivate;
+        Theme.ScaleToDpi(this);
         Shown += (_, _) => Theme.CenterButtons(this);
     }
 

@@ -104,6 +104,7 @@ public class EmailSettingsForm : Form
 
         AcceptButton = btnSave;
         CancelButton = btnCancel;
+        Theme.ScaleToDpi(this);
         Shown += (_, _) => Theme.CenterButtons(this);
     }
 
