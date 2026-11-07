@@ -121,6 +121,7 @@ public class LicenseForm : Form
         Theme.SetIcon(btnCopy, Theme.Glyph.Copy);
         Theme.SetIcon(btnActivate, Theme.Glyph.Key);
         Theme.SetIcon(btnExit, Theme.Glyph.Close);
+        Theme.ScaleToDpi(this);
         Shown += (_, _) => Theme.CenterButtons(this);
 
         AcceptButton = btnActivate;

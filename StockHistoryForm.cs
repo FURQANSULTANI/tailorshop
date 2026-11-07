@@ -194,6 +194,7 @@ public class StockHistoryForm : Form
 
         Controls.Add(_grid);
         _grid.BringToFront();
+        Theme.ScaleToDpi(this);
         Shown += (_, _) => Theme.CenterButtons(this);
 
         LoadData();

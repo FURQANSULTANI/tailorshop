@@ -33,6 +33,127 @@ public static class Theme
     // the full-size font would clip against the control's edge.
     public static readonly Font UrduFontSmall = new("Urdu Typesetting", 9f);
 
+    // "Urdu Typesetting" puts a lot of empty ascent above its letters, so in a TextBox
+    // the visible ink sits low and its descenders (ی, ے...) get cut off by the bottom
+    // edge — worse at 125%/150% Windows scaling. This shifts the text's formatting
+    // rectangle (EM_SETRECT, multiline edits only) so the ink is vertically centered
+    // in the box; the box's own size and position don't change.
+    public static void CenterUrduInk(TextBox box)
+    {
+        box.Multiline = true;
+        box.WordWrap  = false;
+        box.TextChanged += (_, _) =>
+        {
+            // Multiline is only a rendering trick here — never let a pasted newline in.
+            if (!box.Text.Contains('\n') && !box.Text.Contains('\r')) return;
+            box.Text = box.Text.Replace("\r", "").Replace("\n", " ");
+        };
+
+        void Apply()
+        {
+            if (!box.IsHandleCreated) return;
+            var client = box.ClientSize;
+            var top    = client.Height / 2 - UrduInkCentre(box.Font);
+            var rect   = new NativeRect { Left = 1, Top = top, Right = client.Width - 1,
+                                          Bottom = Math.Max(client.Height, top + box.Font.Height + 2) };
+            SendMessage(box.Handle, EmSetRect, IntPtr.Zero, ref rect);
+        }
+        box.HandleCreated += (_, _) => Apply();
+        box.Resize        += (_, _) => Apply();
+        box.FontChanged   += (_, _) => Apply();
+        Apply();
+    }
+
+    private const int EmSetRect = 0xB3;
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct NativeRect { public int Left, Top, Right, Bottom; }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, ref NativeRect lParam);
+
+    private static readonly Dictionary<(string, float, int), int> InkCentreCache = new();
+
+    // Middle of the actually-painted pixels of typical Urdu text, measured from the
+    // top of the line — differs per font, size and DPI, so it's measured, not hard-coded.
+    public static int UrduInkCentre(Font font)
+    {
+        var key = (font.Name, font.Size, font.Height);
+        if (InkCentreCache.TryGetValue(key, out var cached)) return cached;
+
+        using var bmp = new Bitmap(600, font.Height * 2);
+        using (var g = Graphics.FromImage(bmp))
+        {
+            g.Clear(Color.White);
+            TextRenderer.DrawText(g, "قمیض لمبائی شلوار گھیرہ ٹوٹل بل", font, Point.Empty, Color.Black, TextFormatFlags.NoPadding);
+        }
+        int first = -1, last = -1;
+        for (int y = 0; y < bmp.Height; y++)
+            for (int x = 0; x < bmp.Width; x++)
+                if (bmp.GetPixel(x, y).R < 128) { if (first < 0) first = y; last = y; break; }
+
+        var centre = first < 0 ? font.Height / 2 : (first + last) / 2;
+        InkCentreCache[key] = centre;
+        return centre;
+    }
+
+    // For dialogs built in code with hard-coded 100%-scaling pixel positions and no
+    // AutoScaleMode: Windows already draws their fonts bigger at 125%/150%, but nothing
+    // grows the boxes and buttons, so text and icons get clipped. Call at the end of the
+    // constructor — it scales every location and size by the DPI, like the designer
+    // forms' auto-scaling does. Pixel values computed later in event handlers aren't covered.
+    public static void ScaleToDpi(Form form)
+    {
+        var factor = form.DeviceDpi / 96f;
+        if (Math.Abs(factor - 1f) < 0.01f) { FitToScreen(form); return; }
+        form.Scale(new SizeF(factor, factor));
+
+        // Scale() leaves grid row/header heights alone, so the bigger font would be cramped.
+        void ScaleGrids(Control parent)
+        {
+            foreach (Control c in parent.Controls)
+            {
+                if (c is DataGridView grid)
+                {
+                    grid.ColumnHeadersHeight = (int)(grid.ColumnHeadersHeight * factor);
+                    grid.RowTemplate.Height  = (int)(grid.RowTemplate.Height * factor);
+                }
+                ScaleGrids(c);
+            }
+        }
+        ScaleGrids(form);
+        FitToScreen(form);
+    }
+
+    // Keeps a window inside the screen's work area (no taskbar overlap), whatever the
+    // laptop's resolution: on a 1366×768 / 1280×720 screen the bigger forms were taller
+    // than the screen, so Save/Cancel at the bottom ended up off-screen. MinimumSize is
+    // capped too, otherwise Windows grows the window right back past the screen edge.
+    public static void FitToScreen(Form form)
+    {
+        var work = Screen.FromControl(form).WorkingArea.Size;
+        var min  = form.MinimumSize;
+        if (min.Width > work.Width || min.Height > work.Height)
+            form.MinimumSize = new Size(Math.Min(min.Width, work.Width), Math.Min(min.Height, work.Height));
+        if (form.Width > work.Width || form.Height > work.Height)
+            form.Size = new Size(Math.Min(form.Width, work.Width), Math.Min(form.Height, work.Height));
+    }
+
+    // The highlighted number boxes on the dashboard and Stock screen ("Stock Items: 3").
+    // Sizes are scaled for the owner's DPI; AutoSize so the text never clips.
+    public static Label StatCard(Control owner) => new()
+    {
+        BackColor   = Hover(DarkGrey),
+        ForeColor   = TextOnDark,
+        Font        = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+        TextAlign   = ContentAlignment.MiddleCenter,
+        AutoSize    = true,
+        MinimumSize = new Size(owner.LogicalToDeviceUnits(200), owner.LogicalToDeviceUnits(32)),
+        Padding     = new Padding(owner.LogicalToDeviceUnits(12), owner.LogicalToDeviceUnits(6),
+                                  owner.LogicalToDeviceUnits(12), owner.LogicalToDeviceUnits(6)),
+        Margin      = new Padding(0, owner.LogicalToDeviceUnits(3), owner.LogicalToDeviceUnits(10), owner.LogicalToDeviceUnits(3))
+    };
+
     public static Color Hover(Color baseColor) =>
         baseColor.GetBrightness() > 0.5f
             ? DeleteAccent
@@ -323,8 +444,11 @@ public static class Theme
         }
     }
 
+    // size is at 100% scaling; the icon is drawn bigger on 125%/150% screens so it keeps
+    // its proportion to the (already DPI-scaled) button text.
     public static void SetIcon(Button btn, Glyph glyph, int size = 16)
     {
+        size = btn.LogicalToDeviceUnits(size);
         var painted = Color.Empty;
 
         btn.Image             = Icon(glyph, btn.ForeColor, size);
@@ -364,5 +488,41 @@ public static class Theme
         g.FillPolygon(brush, tail);
 
         return bmp;
+    }
+}
+
+// A button-style CheckBox for Urdu option chips. The stock CheckBox draws its text
+// itself, and with "Urdu Typesetting" the ink sits so low that descenders (the tail of
+// ل, ن, ی...) get clipped by the bottom edge. This paints the text with the ink
+// vertically centered instead; everything else (Checked, Text, colors) is a CheckBox.
+public sealed class UrduChip : CheckBox
+{
+    private bool _hover;
+
+    public UrduChip()
+    {
+        Appearance = Appearance.Button;
+        FlatStyle  = FlatStyle.Flat;
+        SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer, true);
+    }
+
+    protected override void OnMouseEnter(EventArgs e) { _hover = true;  Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
+    protected override void OnCheckedChanged(EventArgs e) { Invalidate(); base.OnCheckedChanged(e); }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var hoverBack = FlatAppearance.MouseOverBackColor;
+        var back = _hover && !hoverBack.IsEmpty ? hoverBack : BackColor;
+        using (var brush = new SolidBrush(back)) e.Graphics.FillRectangle(brush, ClientRectangle);
+
+        var top = ClientSize.Height / 2 - Theme.UrduInkCentre(Font);
+        TextRenderer.DrawText(e.Graphics, Text, Font,
+            new Rectangle(0, top, ClientSize.Width, Font.Height), ForeColor,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.SingleLine |
+            TextFormatFlags.NoPadding | TextFormatFlags.NoClipping | TextFormatFlags.RightToLeft);
+
+        if (Focused && ShowFocusCues)
+            ControlPaint.DrawFocusRectangle(e.Graphics, Rectangle.Inflate(ClientRectangle, -3, -3));
     }
 }

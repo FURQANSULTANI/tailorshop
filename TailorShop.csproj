@@ -21,9 +21,22 @@
   <ItemGroup>
     <None Update="WhatsAppService\*.js" CopyToOutputDirectory="PreserveNewest" />
     <None Update="WhatsAppService\package.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="WhatsAppService\.npmrc" CopyToOutputDirectory="PreserveNewest" />
     <None Update="templates\**" CopyToOutputDirectory="PreserveNewest" />
     <None Update="WhatsAppConfig.env" CopyToOutputDirectory="PreserveNewest" />
     <None Update="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!-- node_modules is gitignored and only publish.ps1 installed it, so a fresh clone's
+       Debug build had a WhatsApp service that crashed on start ("Cannot find module
+       'express'") and never showed a QR code. Install it into the build output once. -->
+  <Target Name="InstallWhatsAppServiceModules" AfterTargets="Build"
+          Condition="!Exists('$(OutDir)WhatsAppService\node_modules\express')">
+    <Message Importance="high" Text="Installing WhatsApp service npm packages (first build only)..." />
+    <Exec Command="npm install --omit=dev --no-audit --no-fund"
+          WorkingDirectory="$(OutDir)WhatsAppService"
+          EnvironmentVariables="PUPPETEER_SKIP_DOWNLOAD=true"
+          ContinueOnError="true" />
+  </Target>
 
 </Project>

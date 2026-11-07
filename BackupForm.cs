@@ -90,6 +90,7 @@ public class BackupForm : Form
         Theme.SetIcon(btnClose, Theme.Glyph.Close);
         btnClose.Click += (_, _) => Close();
         Controls.Add(btnClose);
+        Theme.ScaleToDpi(this);
         Shown += (_, _) => Theme.CenterButtons(this);
     }
 
